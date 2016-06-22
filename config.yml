@@ -1,0 +1,60 @@
+#####################################
+###                               ###
+###  BlazeFly Configuration file  ###
+###                               ###
+#####################################
+
+
+##      Main settings       ##
+##############################
+    # The name of the block to be used as fuel
+    fuelBlock: "BLAZE_ROD"
+    # The time in seconds each block of fuel will last
+    fuelTime: 60
+    # The name of the block to be used as fuel for VIPs
+    VIPBlock: "COAL"
+    # The time in seconds each block of fuel will last for VIPs
+    VIPTime: 120
+    # Enables the use of /flyspeed to modify the flight speed
+    allowSpeed: true
+    # Flying fast will cost more fuel (eg. 2x speed halves fuelTime)
+    speedFuel: true
+    # Flight will be disabled for a user if they take any damage
+    breakableWings: true
+    # The time in seconds until wings heal
+    healTime: 15
+    
+    # A list of worlds that BlazeFly will be disabled in
+    disabledWorlds:
+        - 'world_nether'
+        - 'world_end'
+
+
+##     String settings      ##
+##############################
+    permission: "You do not have permission to use this"
+    reload: "Configuration reloaded"
+    disabled: "Flight is currently disabled in this world"
+    flyoff: "Flight has been disabled by an op"
+    
+    wBroke: "Your wings have broken and flight has been disabled!"
+    wBroken: "You cannot fly with broken wings!"
+    wHealed: "Your wings have healed"
+
+    fEnabled: "Flight enabled"
+    fDisabled: "Flight disabled"
+    fRequired: "Flight requires fuel"
+    fBad: "Renamed blocks are not supported as fuel"
+    fLow: "WARNING: Flight will be disabled in 10 seconds"
+    fLast: "WARNING: You are now on your last block of fuel!"
+    fOut: "You are out of fuel, flight has been disabled"
+
+    fsDisabled: "Flyspeed is currently disabled"
+    fsFlight: "Flight must be enabled to use flyspeed"
+    fsIs1: "Flyspeed is currently x1"
+    fsIs2: "Flyspeed is currently x2"
+    fsIs4: "Flyspeed is currently x4"
+    fsNow1: "Flyspeed is now x1"
+    fsNow2: "Flyspeed is now x2"
+    fsNow4: "Flyspeed is now x4"
+    fsOptions: "The options for flyspeed are 1, 2 & 4"

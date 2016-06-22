@@ -1,0 +1,48 @@
+name: BlazeFly
+version: 2.2.2
+author: bradleyjh@outlook.com
+description: Provides the ability to fly at the cost of fuel
+main: com.bradleyjh.blazefly.Main
+
+commands:
+    fly:
+        description: Enables/disables flight
+        usage: /fly
+    bfly:
+        description: Enables/disables flight
+        usage: /bfly
+    flyspeed:
+        description: Used to modify the speed of flight
+        usage: /flyspeed [multiplier]
+    flyoff:
+        description: Disables flight for the given user
+        usage: /flyoff [player]
+    bfreload:
+        description: Reloads the config file
+        usage: /bfreload
+
+permissions:
+    blazefly.use:
+        description: Allows the use of /fly & /bfly
+        default: op
+    blazefly.flyspeed:
+        description: Allows the use of /flyspeed
+        default: op
+    blazefly.vip:
+        description: User gets VIP fuel rate
+        default: op
+    blazefly.flyoff:
+        description: Allows the use of /flyoff
+        default: op
+    blazefly.nofuel:
+        description: Allows the use of /fly without costing fuel
+        default: op
+    blazefly.superwings:
+        description: Wings cannot break while breakableWings is enabled
+        default: op
+    blazefly.anyworld:
+        description: Allows the use of /fly regardless of disabled worlds
+        default: op
+    blazefly.reload:
+        description: Allows the use of /bfreload
+        default: op
