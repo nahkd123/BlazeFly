@@ -25,12 +25,33 @@ import org.bukkit.Location;
 
 public class Timer implements Runnable {
     private Main plugin;
+    Integer lagAdjustment = 0;
 
     public Timer(Main plugin) {
         this.plugin = plugin;
+        plugin.timerLag = 0;
+        plugin.lastUpdate = System.currentTimeMillis();
     }
 
     public void run() {
+        // Timer lag compensation stuff
+        plugin.timerLag = plugin.timerLag + (Math.round(System.currentTimeMillis() - plugin.lastUpdate)) - 1000;
+        plugin.lastUpdate = System.currentTimeMillis();
+        if (plugin.timerLag >= 1000) {
+            lagAdjustment = 1;
+            plugin.timerLag = plugin.timerLag - 1000;
+        }
+
+        // Check if any of those with flight disabled have left the server and remove them
+        if (this.plugin.disabled != null) {
+            Iterator<Player> iter = this.plugin.disabled.keySet().iterator();
+            while (iter.hasNext()) {
+                Player player = (Player)iter.next();
+                if (!player.isOnline()) { this.plugin.disabled.remove(player); }
+            }
+        }
+
+        // Update those who are falling due to running out of fuel and need to be protected from damage
         if (this.plugin.fallers != null) {
             Iterator<Player> iter = this.plugin.fallers.keySet().iterator();
             while (iter.hasNext()) {
@@ -52,6 +73,7 @@ public class Timer implements Runnable {
             }
         }
 
+        // Update those who have "broken wings" and cannot fly until "healed"
         if (this.plugin.broken != null) {
             Iterator<Player> iter = this.plugin.broken.keySet().iterator();
             while (iter.hasNext()) {
@@ -64,24 +86,28 @@ public class Timer implements Runnable {
                 else if (val.intValue() == 0) {
                     this.plugin.broken.remove(player);
                     if (!this.plugin.getConfig().getString("wBroken").isEmpty()) {
+                        if (! plugin.disabled.containsKey(player)) { player.setAllowFlight(true); }
                         player.sendMessage(this.plugin.messageHeader + this.plugin.getConfig().getString("wHealed"));
                     }
                 }
                 else {
-                    this.plugin.broken.put(player, Integer.valueOf(val.intValue() - 1));
+                    this.plugin.broken.put(player, Integer.valueOf(val.intValue() - (1 + lagAdjustment)));
                 }
             }
         }
 
+        // Update the flight counter to take more fuel or give the warning fuel is about to run out
         if (this.plugin.flyers != null) {
             Iterator<Player> iter = this.plugin.flyers.keySet().iterator();
             while (iter.hasNext()) {
                 Player player = (Player)iter.next();
                 Integer val = (Integer)this.plugin.flyers.get(player);
-            
+
+                // They're offline
                 if (!player.isOnline()) {
                     this.plugin.flyers.remove(player);
                 }
+                // They moved to a world where flight is disable and don't have the anyworld permission
                 else if ((this.plugin.disabledWorlds.contains(player.getWorld().getName())) && (!player.hasPermission("blazefly.anyworld"))) {
                     this.plugin.fallers.put(player, Integer.valueOf(2));
                     this.plugin.flyers.remove(player);
@@ -91,6 +117,7 @@ public class Timer implements Runnable {
                         player.sendMessage(this.plugin.messageHeader + this.plugin.getConfig().getString("disabled"));
                     }
                 }
+                // They're normal or VIP (op is -1)
                 else if (val.intValue() != -1) {
                     PlayerInventory inv = player.getInventory();
                     if (val.intValue() <= 1) {
@@ -110,25 +137,27 @@ public class Timer implements Runnable {
                                 player.sendMessage(this.plugin.messageHeader + this.plugin.getConfig().getString("fLast"));
                             }
                         }
-                    }
-                    else {
-                        if (!this.plugin.getConfig().getString("fOut").isEmpty()) {
-                            player.sendMessage(this.plugin.messageHeader + this.plugin.getConfig().getString("fOut"));
+                        else {
+                            if (!this.plugin.getConfig().getString("fOut").isEmpty()) {
+                                player.sendMessage(this.plugin.messageHeader + this.plugin.getConfig().getString("fOut"));
+                            }
+                            this.plugin.fallers.put(player, Integer.valueOf(1));
+                            this.plugin.flyers.remove(player);
+                            player.setAllowFlight(false);
                         }
-                        this.plugin.fallers.put(player, Integer.valueOf(1));
-                        this.plugin.flyers.remove(player);
-                        player.setFlySpeed(0.1F);
-                        player.setAllowFlight(false);
                     }
-                }
-                else {
-                    this.plugin.flyers.put(player, Integer.valueOf(val.intValue() - 1));
-                    if ((((this.plugin.getFuel(player) != 1 ? 1 : 0) & (val.intValue() - 1 == 10 ? 1 : 0)) != 0) && 
-                    (!this.plugin.getConfig().getString("fLow").isEmpty())) {
-                        player.sendMessage(this.plugin.messageHeader + this.plugin.getConfig().getString("fLow"));
+                    // Update the players remaining time
+                    else {
+                        if (plugin.broken.containsKey(player) || plugin.disabled.containsKey(player)) { continue; }
+                        this.plugin.flyers.put(player, Integer.valueOf(val.intValue() - (1 + lagAdjustment)));
+                        if ((((this.plugin.getFuel(player) != 1 ? 1 : 0) & (val.intValue() - 1 == 10 ? 1 : 0)) != 0) && 
+                        (!this.plugin.getConfig().getString("fLow").isEmpty())) {
+                            player.sendMessage(this.plugin.messageHeader + this.plugin.getConfig().getString("fLow"));
+                        }
                     }
                 }
             }
         }
+        lagAdjustment = 0;
     }
 }

@@ -16,7 +16,7 @@
 ////////////////////////////////////////////////////////////////////////////
 
 package com.bradleyjh.blazefly;
-
+    
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.event.Listener;
 import java.util.List;
@@ -34,14 +34,17 @@ public class Main extends JavaPlugin implements Listener {
     ConcurrentHashMap<Player, Integer> flyers = new ConcurrentHashMap<>();
     ConcurrentHashMap<Player, Integer> fallers = new ConcurrentHashMap<>();
     ConcurrentHashMap<Player, Integer> broken = new ConcurrentHashMap<>();
+    ConcurrentHashMap<Player, Integer> disabled = new ConcurrentHashMap<>();
     List<String> disabledWorlds;
     String messageHeader = ChatColor.BLUE + "[BlazeFly] " + ChatColor.WHITE;
+    Long lastUpdate;
+    Integer timerLag;
 
     public void onEnable() {
         saveDefaultConfig();
         this.disabledWorlds = getConfig().getStringList("disabledWorlds");
         getServer().getPluginManager().registerEvents(this, this);
-        getServer().getScheduler().runTaskTimerAsynchronously(this, new Timer(this), 20L, 20L);
+        getServer().getScheduler().scheduleSyncRepeatingTask(this, new Timer(this), 20L, 20L);
         for(Player player : getServer().getOnlinePlayers()) {
             player.setFlySpeed(0.1F);
             if (!player.hasPermission("blazefly.nofuel")) {
@@ -55,7 +58,18 @@ public class Main extends JavaPlugin implements Listener {
         }
     }
 
+    // Replaces the deprecated getServer().getPlayer()
+    public Player getPlayer(String name) {
+        for (Player p : getServer().getOnlinePlayers()) {
+            if (p.getName().equalsIgnoreCase(name))
+                return p;
+        }
+        return null;
+    }
+
+    // Do checks for fuel
     public int getFuel(Player player) {
+        if (flyers.containsKey(player) && flyers.get(player) > 1) {return 1;}
         PlayerInventory inv = player.getInventory();
         ItemStack[] contents = inv.getContents();
         int badFuel = 0;
@@ -80,7 +94,9 @@ public class Main extends JavaPlugin implements Listener {
         return 0;
     }
 
+    // Process incoming commands
     public boolean onCommand(CommandSender sender, Command cmd, String commandLabel, String[] args) {
+        // Reload the configuration file
         if (commandLabel.equalsIgnoreCase("bfreload")) {
             if (!sender.hasPermission("blazefly.reload")) {
                 if (!getConfig().getString("permission").isEmpty()) {
@@ -96,13 +112,14 @@ public class Main extends JavaPlugin implements Listener {
             return true;
         }
 
+        // Disable a given users flight
         if (commandLabel.equalsIgnoreCase("flyoff")) {
             if (sender.hasPermission("blazefly.flyoff")) {
                 if (args.length != 1) {
                     return false;
                 }
 
-                Player target = getServer().getPlayer(args[0]);
+                Player target = getPlayer(args[0]);
 
                 if ((target == null) || (!target.isOnline())) {
                     sender.sendMessage(this.messageHeader + "No such player online");
@@ -114,10 +131,7 @@ public class Main extends JavaPlugin implements Listener {
                 }
 
                 this.fallers.put(target, Integer.valueOf(2));
-                this.flyers.remove(target);
-                this.broken.remove(target);
-                target.setFlySpeed(0.1F);
-                target.setAllowFlight(false);
+                this.disabled.put(target, 1);
                 sender.sendMessage(this.messageHeader + "Flight has been disabled for " + args[0]);
 
                 if (!getConfig().getString("flyoff").isEmpty()) {
@@ -145,6 +159,7 @@ public class Main extends JavaPlugin implements Listener {
             return true;
         }
 
+        // Enable flight
         if (((commandLabel.equalsIgnoreCase("fly")) || (commandLabel.equalsIgnoreCase("bfly"))) && (args.length == 0)) {
             if (!player.hasPermission("blazefly.use")) {
                 if (!getConfig().getString("permission").isEmpty()) {
@@ -153,18 +168,18 @@ public class Main extends JavaPlugin implements Listener {
                 return true;
             }
 
+            // Turn flight off
             if (player.getAllowFlight()) {
                 this.fallers.put(player, Integer.valueOf(2));
-                this.flyers.remove(player);
-                player.setFlySpeed(0.1F);
+                this.disabled.put(player, 1);
                 player.setAllowFlight(false);
                 if (!getConfig().getString("fDisabled").isEmpty()) {
                     player.sendMessage(this.messageHeader + getConfig().getString("fDisabled"));
                 }
                 return true;
             }
-
-            if (!player.getAllowFlight()) {
+            // Turn flight on
+            else {
                 if (this.broken.containsKey(player)) {
                     if (!getConfig().getString("wBroken").isEmpty()) {
                         player.sendMessage(this.messageHeader + getConfig().getString("wBroken"));
@@ -189,24 +204,25 @@ public class Main extends JavaPlugin implements Listener {
                         player.sendMessage(this.messageHeader + getConfig().getString("fEnabled"));
                     }
                     this.flyers.put(player, Integer.valueOf(-1));
-                    player.setFlySpeed(0.1F);
                     player.setAllowFlight(true);
                 }
                 else {
-                    PlayerInventory inv = player.getInventory();
-                    if (player.hasPermission("blazefly.vip")) {
-                        this.flyers.put(player, Integer.valueOf(getConfig().getInt("VIPTime")));
-                        inv.removeItem(new ItemStack[] { new ItemStack(Material.getMaterial(getConfig().getString("VIPBlock")), 1) });
-                    }
-                    else {
-                        this.flyers.put(player, Integer.valueOf(getConfig().getInt("fuelTime")));
-                        inv.removeItem(new ItemStack[] { new ItemStack(Material.getMaterial(getConfig().getString("fuelBlock")), 1) });
+                    if (! flyers.containsKey(player)) {
+                        PlayerInventory inv = player.getInventory();
+                        if (player.hasPermission("blazefly.vip")) {
+                            this.flyers.put(player, Integer.valueOf(getConfig().getInt("VIPTime")));
+                            inv.removeItem(new ItemStack[] { new ItemStack(Material.getMaterial(getConfig().getString("VIPBlock")), 1) });
+                        }
+                        else {
+                            this.flyers.put(player, Integer.valueOf(getConfig().getInt("fuelTime")));
+                            inv.removeItem(new ItemStack[] { new ItemStack(Material.getMaterial(getConfig().getString("fuelBlock")), 1) });
+                        }
                     }
 
                     if (!getConfig().getString("fEnabled").isEmpty()) {
                         player.sendMessage(this.messageHeader + getConfig().getString("fEnabled"));
                     }
-                    player.setFlySpeed(0.1F);
+                    if (this.disabled.containsKey(player)) { this.disabled.remove(player); }
                     player.setAllowFlight(true);
 
                     if ((getFuel(player) == 0) && (!getConfig().getString("fLast").isEmpty())) {
@@ -217,6 +233,7 @@ public class Main extends JavaPlugin implements Listener {
             }
         }
 
+        // Change your speed of flight (1x, 2x or 4x speed)
         if (commandLabel.equalsIgnoreCase("flyspeed")) {
             if (!player.hasPermission("blazefly.flyspeed")) {
                 if (!getConfig().getString("permission").isEmpty()) {
@@ -258,13 +275,20 @@ public class Main extends JavaPlugin implements Listener {
                 }
             }
             else {
+                Float newSpeed = Float.valueOf(args[0]);
+                Float oldSpeed = player.getFlySpeed() * 10;
                 if (args[0].equals("1")) {
                     if (player.getFlySpeed() != 0.1F) {
                         player.setFlySpeed(0.1F);
-                        if (!getConfig().getString("fsNow1").isEmpty()) {
-                            player.sendMessage(this.messageHeader + getConfig().getString("fsNow1"));
+                        if (!getConfig().getString("fsNow1").isEmpty()) { player.sendMessage(this.messageHeader + getConfig().getString("fsNow1")); }
+                        if ((!player.hasPermission("blazefly.nofuel") & getConfig().getString("speedFuel").equalsIgnoreCase("true"))) {
+                            if (oldSpeed < newSpeed) {
+                                this.flyers.put(player, Math.round(this.flyers.get(player) / newSpeed));
+                            }
+                            else {
+                                this.flyers.put(player, Math.round(this.flyers.get(player) * oldSpeed));
+                            }
                         }
-                        if ((!player.hasPermission("blazefly.nofuel") & getConfig().getString("speedFuel").equalsIgnoreCase("true"))) { this.flyers.put(player, Integer.valueOf(0)); }
                         return true;
                     }
 
@@ -280,7 +304,14 @@ public class Main extends JavaPlugin implements Listener {
                         if (!getConfig().getString("fsNow2").isEmpty()) {
                             player.sendMessage(this.messageHeader + getConfig().getString("fsNow2"));
                         }
-                        if ((!player.hasPermission("blazefly.nofuel") & getConfig().getString("speedFuel").equalsIgnoreCase("true"))) { this.flyers.put(player, Integer.valueOf(0)); }
+                        if ((!player.hasPermission("blazefly.nofuel") & getConfig().getString("speedFuel").equalsIgnoreCase("true"))) {
+                            if (oldSpeed < newSpeed) {
+                                this.flyers.put(player, Math.round(this.flyers.get(player) / newSpeed));
+                            }
+                            else {
+                                this.flyers.put(player, Math.round(this.flyers.get(player) * oldSpeed));
+                            }
+                        }
                         return true;
                     }
 
@@ -296,7 +327,14 @@ public class Main extends JavaPlugin implements Listener {
                         if (!getConfig().getString("fsNow4").isEmpty()) {
                             player.sendMessage(this.messageHeader + getConfig().getString("fsNow4"));
                         }
-                        if ((!player.hasPermission("blazefly.nofuel") & getConfig().getString("speedFuel").equalsIgnoreCase("true"))) { this.flyers.put(player, Integer.valueOf(0)); }
+                        if ((!player.hasPermission("blazefly.nofuel") & getConfig().getString("speedFuel").equalsIgnoreCase("true"))) {
+                            if (oldSpeed < newSpeed) {
+                                this.flyers.put(player, Math.round(this.flyers.get(player) / newSpeed));
+                            }
+                            else {
+                                this.flyers.put(player, Math.round(this.flyers.get(player) * oldSpeed));
+                            }
+                        }
                         return true;
                     }
 
@@ -320,18 +358,22 @@ public class Main extends JavaPlugin implements Listener {
         if ((e.getEntity() instanceof Player)) {
             Player player = (Player)e.getEntity();
 
+            // Protect players falling due to running out of fuel, if enabled
             if ((e.getCause().equals(EntityDamageEvent.DamageCause.FALL)) && (this.fallers.containsKey(player))) {
-                e.setCancelled(true);
+                if (getConfig().getBoolean("fallProtection")) {
+                    e.setCancelled(true);
+                    return;
+                }
             }
 
+            // Ignore these types of damage
             if (e.getCause().equals(EntityDamageEvent.DamageCause.DROWNING)) { return; }
             if (e.getCause().equals(EntityDamageEvent.DamageCause.STARVATION)) { return; }
-
-            if ((getConfig().getBoolean("breakableWings")) && (!player.hasPermission("blazefly.superwings")) && (this.flyers.containsKey(player))) {
+            
+            // PvP stuff, break wings (disallow flight) if player takes damage
+            if ((getConfig().getBoolean("breakableWings")) && (! player.hasPermission("blazefly.superwings")) && (this.flyers.containsKey(player))) {
                 this.fallers.put(player, Integer.valueOf(2));
                 this.broken.put(player, Integer.valueOf(getConfig().getInt("healTime")));
-                this.flyers.remove(player);
-                player.setFlySpeed(0.1F);
                 player.setAllowFlight(false);
                 if (!getConfig().getString("wBroke").isEmpty()) {
                     player.sendMessage(this.messageHeader + getConfig().getString("wBroke"));

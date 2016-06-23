@@ -23,7 +23,9 @@
     breakableWings: true
     # The time in seconds until wings heal
     healTime: 15
-    
+    # Protect players from fall damage due to fuel running out
+    fallProtection: true
+
     # A list of worlds that BlazeFly will be disabled in
     disabledWorlds:
         - 'world_nether'
@@ -35,7 +37,7 @@
     permission: "You do not have permission to use this"
     reload: "Configuration reloaded"
     disabled: "Flight is currently disabled in this world"
-    flyoff: "Flight has been disabled by an op"
+    flyoff: "Flight has been disabled for you by an administrator"
     
     wBroke: "Your wings have broken and flight has been disabled!"
     wBroken: "You cannot fly with broken wings!"

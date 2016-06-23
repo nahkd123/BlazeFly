@@ -1,5 +1,5 @@
 name: BlazeFly
-version: 2.2.2
+version: 2.3
 author: bradleyjh@outlook.com
 description: Provides the ability to fly at the cost of fuel
 main: com.bradleyjh.blazefly.Main
