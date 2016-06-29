@@ -17,147 +17,94 @@
 
 package com.bradleyjh.blazefly;
 
-import java.util.*;
+import java.util.Iterator;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.*;
 import org.bukkit.Location;
 
 public class Timer implements Runnable {
-    private Main plugin;
-    Integer lagAdjustment = 0;
-
-    public Timer(Main plugin) {
-        this.plugin = plugin;
-        plugin.timerLag = 0;
-        plugin.lastUpdate = System.currentTimeMillis();
-    }
+    private Main main;
+    public Timer(Main plugin) { main = plugin; }
 
     public void run() {
-        // Timer lag compensation stuff
-        plugin.timerLag = plugin.timerLag + (Math.round(System.currentTimeMillis() - plugin.lastUpdate)) - 1000;
-        plugin.lastUpdate = System.currentTimeMillis();
-        if (plugin.timerLag >= 1000) {
-            lagAdjustment = 1;
-            plugin.timerLag = plugin.timerLag - 1000;
-        }
-
-        // Check if any of those with flight disabled have left the server and remove them
-        if (this.plugin.disabled != null) {
-            Iterator<Player> iter = this.plugin.disabled.keySet().iterator();
+        if (! main.core.flying.isEmpty()) {
+            Iterator<Player> iter = main.core.flying.keySet().iterator();
             while (iter.hasNext()) {
                 Player player = (Player)iter.next();
-                if (!player.isOnline()) { this.plugin.disabled.remove(player); }
-            }
-        }
-
-        // Update those who are falling due to running out of fuel and need to be protected from damage
-        if (this.plugin.fallers != null) {
-            Iterator<Player> iter = this.plugin.fallers.keySet().iterator();
-            while (iter.hasNext()) {
-                Player player = (Player)iter.next();
-                Integer val = (Integer)this.plugin.fallers.get(player);
-                Location block = new Location(player.getWorld(), player.getLocation().getBlockX(), player.getLocation().getBlockY() - 1, player.getLocation().getBlockZ());
-
-                if ((val.intValue() == 2) && (!block.getBlock().getType().equals(Material.AIR))) {
-                    this.plugin.fallers.put(player, Integer.valueOf(1));
+                Double timePassed = main.core.getTimePassed();
+                
+                // If they went offline sanitize stuff
+                if (! player.isOnline()) {
+                    main.core.clearPlayer(player);
                 }
-                if (val.intValue() == 1) {
-                    if (!block.getBlock().getType().equals(Material.AIR)) {
-                        this.plugin.fallers.remove(player);
+                
+                // Ensure flight is always in the correct state (changing worlds etc)
+                if (main.core.isFlying(player)) { player.setAllowFlight(true); }
+                else { player.setAllowFlight(false); }
+
+                // They moved to a world where flight is disable and don't have the anyworld permission
+                if (main.core.isFlying(player) && main.core.disabledWorlds.contains(player.getWorld().getName()) && ! main.hasPermission(player, "anyworld")) {
+                    main.core.setFallng(player, true);
+                    main.core.setFlying(player, false);
+                    player.setAllowFlight(false);
+                    main.messagePlayer(player, "disabled", null);
+                }
+                
+                // Check if they have "landed" to disable fall protection
+                if (main.core.isFalling(player)) {
+                    Location block = new Location(player.getWorld(), player.getLocation().getBlockX(), Math.ceil(player.getLocation().getY()) - 1, player.getLocation().getBlockZ());
+                    if (! block.getBlock().getType().equals(Material.AIR)) {
+                        main.core.setFallng(player, false);
+                    }
+                }
+                
+                // Check if the players "wings" have "healed"
+                if (main.core.isBroken(player)) {
+                    if (main.core.getBrokenCount(player) > 1) {
+                        main.core.decreaseBrokenCounter(player, timePassed);
                     }
                     else {
-                        this.plugin.fallers.put(player, Integer.valueOf(2));
-                    }
+                        main.core.removeBroken(player);
+                        player.setAllowFlight(true);
+                        main.core.setFlying(player, true);
+                        main.messagePlayer(player, "wHealed", null);
+                    }  
                 }
-            }
-        }
 
-        // Update those who have "broken wings" and cannot fly until "healed"
-        if (this.plugin.broken != null) {
-            Iterator<Player> iter = this.plugin.broken.keySet().iterator();
-            while (iter.hasNext()) {
-                Player player = (Player)iter.next();
-                Integer val = (Integer)this.plugin.broken.get(player);
-
-                if (!player.isOnline()) {
-                    this.plugin.broken.remove(player);
-                }
-                else if (val.intValue() == 0) {
-                    this.plugin.broken.remove(player);
-                    if (!this.plugin.getConfig().getString("wBroken").isEmpty()) {
-                        if (! plugin.disabled.containsKey(player)) { player.setAllowFlight(true); }
-                        player.sendMessage(this.plugin.messageHeader + this.plugin.getConfig().getString("wHealed"));
-                    }
-                }
-                else {
-                    this.plugin.broken.put(player, Integer.valueOf(val.intValue() - (1 + lagAdjustment)));
-                }
-            }
-        }
-
-        // Update the flight counter to take more fuel or give the warning fuel is about to run out
-        if (this.plugin.flyers != null) {
-            Iterator<Player> iter = this.plugin.flyers.keySet().iterator();
-            while (iter.hasNext()) {
-                Player player = (Player)iter.next();
-                Integer val = (Integer)this.plugin.flyers.get(player);
-
-                // They're offline
-                if (!player.isOnline()) {
-                    this.plugin.flyers.remove(player);
-                }
-                // They moved to a world where flight is disable and don't have the anyworld permission
-                else if ((this.plugin.disabledWorlds.contains(player.getWorld().getName())) && (!player.hasPermission("blazefly.anyworld"))) {
-                    this.plugin.fallers.put(player, Integer.valueOf(2));
-                    this.plugin.flyers.remove(player);
-                    player.setFlySpeed(0.1F);
-                    player.setAllowFlight(false);
-                    if (!this.plugin.getConfig().getString("disabled").isEmpty()) {
-                        player.sendMessage(this.plugin.messageHeader + this.plugin.getConfig().getString("disabled"));
-                    }
-                }
-                // They're normal or VIP (op is -1)
-                else if (val.intValue() != -1) {
-                    PlayerInventory inv = player.getInventory();
-                    if (val.intValue() <= 1) {
-                        if (this.plugin.getFuel(player) == 1) {
-                            float flySpeed = player.getFlySpeed() * 10.0F;
-                            if (this.plugin.getConfig().getString("speedFuel") != "true") { flySpeed = 1.0F; }
-                            if (player.hasPermission("blazefly.vip")) {
-                                this.plugin.flyers.put(player, Integer.valueOf(this.plugin.getConfig().getInt("VIPTime") / (int)flySpeed));
-                                inv.removeItem(new ItemStack[] { new ItemStack(Material.getMaterial(this.plugin.getConfig().getString("VIPBlock")), 1) });
+                // Check and update the players fuel counter
+                if (main.core.isFlying(player) && ! main.hasPermission(player, "nofuel")) {
+                    if (! main.core.hasFuelCount(player)) {
+                            if (main.core.hasFuel(player, main.fuelBlock(player), main.fuelSubdata(player))) {
+                                main.core.increaseFuelCount(player, main.fuelTime(player));
+                                main.core.removeFuel(player, main.fuelBlock(player), main.fuelSubdata(player));
+                                if (! main.core.hasFuel(player, main.fuelBlock(player), main.fuelSubdata(player))) { main.messagePlayer(player, "fLast", null); }
                             }
                             else {
-                                this.plugin.flyers.put(player, Integer.valueOf(this.plugin.getConfig().getInt("fuelTime") / (int)flySpeed));
-                                inv.removeItem(new ItemStack[] { new ItemStack(Material.getMaterial(this.plugin.getConfig().getString("fuelBlock")), 1) });
+                                main.messagePlayer(player, "fOut", null);
+                                main.core.setFallng(player, true);
+                                main.core.setFlying(player, false);
+                                player.setAllowFlight(false);
                             }
-                  
-                            if ((this.plugin.getFuel(player) != 1) && (!this.plugin.getConfig().getString("fLast").isEmpty())) {
-                                player.sendMessage(this.plugin.messageHeader + this.plugin.getConfig().getString("fLast"));
-                            }
-                        }
-                        else {
-                            if (!this.plugin.getConfig().getString("fOut").isEmpty()) {
-                                player.sendMessage(this.plugin.messageHeader + this.plugin.getConfig().getString("fOut"));
-                            }
-                            this.plugin.fallers.put(player, Integer.valueOf(1));
-                            this.plugin.flyers.remove(player);
-                            player.setAllowFlight(false);
-                        }
                     }
                     // Update the players remaining time
                     else {
-                        if (plugin.broken.containsKey(player) || plugin.disabled.containsKey(player)) { continue; }
-                        this.plugin.flyers.put(player, Integer.valueOf(val.intValue() - (1 + lagAdjustment)));
-                        if ((((this.plugin.getFuel(player) != 1 ? 1 : 0) & (val.intValue() - 1 == 10 ? 1 : 0)) != 0) && 
-                        (!this.plugin.getConfig().getString("fLow").isEmpty())) {
-                            player.sendMessage(this.plugin.messageHeader + this.plugin.getConfig().getString("fLow"));
+                        if (! main.core.isFlying(player)) { continue; } // If they aren't flying don't use fuel
+                        Double fuelMultiplier = 1.0;
+                        Location block = new Location(player.getWorld(), player.getLocation().getBlockX(), Math.ceil(player.getLocation().getY()) - 1, player.getLocation().getBlockZ());
+                        if (! block.getBlock().getType().equals(Material.AIR)) {
+                            fuelMultiplier = main.getConfig().getDouble("groundFuel");
                         }
+                        else {
+                            if (main.getConfig().getBoolean("speedFuel")) {
+                                Float f = player.getFlySpeed();
+                                fuelMultiplier = f.doubleValue() * 10;
+                            }
+                        }
+                        
+                        main.core.decreaseFuelCount(player, (timePassed * fuelMultiplier));
                     }
                 }
-            }
+            } 
         }
-        lagAdjustment = 0;
     }
 }

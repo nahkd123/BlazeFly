@@ -1,5 +1,5 @@
 name: BlazeFly
-version: 2.3
+version: 3.0
 author: bradleyjh@outlook.com
 description: Provides the ability to fly at the cost of fuel
 main: com.bradleyjh.blazefly.Main
@@ -14,6 +14,9 @@ commands:
     flyspeed:
         description: Used to modify the speed of flight
         usage: /flyspeed [multiplier]
+    fuel:
+        description: Used to check seconds of fuel remaining
+        usage: /fuel
     flyoff:
         description: Disables flight for the given user
         usage: /flyoff [player]

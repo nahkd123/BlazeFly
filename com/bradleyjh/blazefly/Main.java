@@ -16,368 +16,338 @@
 ////////////////////////////////////////////////////////////////////////////
 
 package com.bradleyjh.blazefly;
-    
+import java.util.HashMap;
+import java.util.Iterator;
+
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.event.Listener;
-import java.util.List;
-import java.util.concurrent.*;
 import org.bukkit.entity.Player;
 import org.bukkit.ChatColor;
-import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
-import org.bukkit.inventory.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.entity.PlayerDeathEvent;
 
 public class Main extends JavaPlugin implements Listener {
-    ConcurrentHashMap<Player, Integer> flyers = new ConcurrentHashMap<>();
-    ConcurrentHashMap<Player, Integer> fallers = new ConcurrentHashMap<>();
-    ConcurrentHashMap<Player, Integer> broken = new ConcurrentHashMap<>();
-    ConcurrentHashMap<Player, Integer> disabled = new ConcurrentHashMap<>();
-    List<String> disabledWorlds;
-    String messageHeader = ChatColor.BLUE + "[BlazeFly] " + ChatColor.WHITE;
-    Long lastUpdate;
-    Integer timerLag;
+    Core core = new Core();
 
     public void onEnable() {
         saveDefaultConfig();
-        this.disabledWorlds = getConfig().getStringList("disabledWorlds");
+        core.disabledWorlds = getConfig().getStringList("disabledWorlds");
         getServer().getPluginManager().registerEvents(this, this);
-        getServer().getScheduler().scheduleSyncRepeatingTask(this, new Timer(this), 20L, 20L);
-        for(Player player : getServer().getOnlinePlayers()) {
-            player.setFlySpeed(0.1F);
-            if (!player.hasPermission("blazefly.nofuel")) {
-                if (player.hasPermission("blazefly.vip")) {
-                    this.flyers.put(player, Integer.valueOf(getConfig().getInt("VIPTime")));
-                }
-                else {
-                    this.flyers.put(player, Integer.valueOf(getConfig().getInt("fuelTime")));
-                }
+        if (getConfig().getBoolean("updateChecker")) {
+            getServer().getScheduler().runTaskAsynchronously(this, new Updater(this, getDescription().getFullName()));
+        }
+        getServer().getScheduler().scheduleSyncRepeatingTask(this, new Timer(this), 10L, 10L);
+
+        // For server reload disable flight and protect fallers
+        for (Player player : getServer().getOnlinePlayers()) {
+            if (player.getAllowFlight()) {
+                messagePlayer(player, "fReload", null);
+                core.setFallng(player, true);
+                core.setFlying(player, false);
+                player.setAllowFlight(false);
             }
         }
     }
 
     // Replaces the deprecated getServer().getPlayer()
     public Player getPlayer(String name) {
-        for (Player p : getServer().getOnlinePlayers()) {
-            if (p.getName().equalsIgnoreCase(name))
-                return p;
+        for (Player player : getServer().getOnlinePlayers()) {
+            if (player.getName().equalsIgnoreCase(name)) { return player; }
         }
         return null;
     }
-
-    // Do checks for fuel
-    public int getFuel(Player player) {
-        if (flyers.containsKey(player) && flyers.get(player) > 1) {return 1;}
-        PlayerInventory inv = player.getInventory();
-        ItemStack[] contents = inv.getContents();
-        int badFuel = 0;
-        ItemStack[] arrayOfItemStack1;
-        int j = (arrayOfItemStack1 = contents).length;
-        for (int i = 0; i < j; i++) {
-            ItemStack f = arrayOfItemStack1[i];
-            if (f != null) {
-                if (player.hasPermission("blazefly.vip")) {
-                    if (f.getData().getItemType().equals(Material.getMaterial(getConfig().getString("VIPBlock")))) {
-                        if (f.getItemMeta().hasDisplayName()) { badFuel = 1; }
-                        if (!f.getItemMeta().hasDisplayName()) { return 1; }
-                    }
-                }
-                else if (f.getData().getItemType().equals(Material.getMaterial(getConfig().getString("fuelBlock")))) {
-                    if (f.getItemMeta().hasDisplayName()) { badFuel = 1; }
-                    if (!f.getItemMeta().hasDisplayName()) { return 1; }
+    
+    // Send a configurable message to a command sender
+    public void messagePlayer (CommandSender sender, String type, HashMap<String, String> keywords) {
+        if (! Main.this.getConfig().getString(type).isEmpty()) {
+            
+            // Get the header and the string
+            String message = getConfig().getString("header") + getConfig().getString(type);
+            
+            // Replace keywords if they were provided
+            if (keywords != null) {
+                Iterator<String> iter = keywords.keySet().iterator();
+                while (iter.hasNext()) {
+                    String keyword = iter.next();
+                    String replacement = keywords.get(keyword);
+                    message = message.replace(keyword, replacement);
                 }
             }
+            
+            // Apply formatting
+            sender.sendMessage(ChatColor.translateAlternateColorCodes('&', message));
         }
-        if (badFuel == 1) { return 2; }
-        return 0;
+    }
+    
+    // Check permissions
+    public boolean hasPermission (CommandSender sender, String permission) {
+        if (sender.hasPermission("blazefly." + permission)) { return true; }
+        return false;
+    }
+    
+    // Get the fuel block currently used
+    public String fuelBlock(Player player) {
+        if (hasPermission(player, "vip")) { return getConfig().getString("VIPBlock"); }
+        else { return getConfig().getString("fuelBlock"); }
+    }
+    
+    // Get the fuel subdata currently used
+    public Integer fuelSubdata(Player player) {
+        if (hasPermission(player, "vip")) { return getConfig().getInt("VIPSubdata"); }
+        else { return getConfig().getInt("fuelSubdata"); }
+    }
+    
+    // Get the time each fuel block should last (-1 because Timer adds a second at 0)
+    public Double fuelTime(Player player) {
+        if (hasPermission(player, "vip")) { return getConfig().getDouble("VIPTime") - 1; }
+        else { return getConfig().getDouble("fuelTime") - 1; }
     }
 
     // Process incoming commands
     public boolean onCommand(CommandSender sender, Command cmd, String commandLabel, String[] args) {
+        
         // Reload the configuration file
         if (commandLabel.equalsIgnoreCase("bfreload")) {
-            if (!sender.hasPermission("blazefly.reload")) {
-                if (!getConfig().getString("permission").isEmpty()) {
-                    sender.sendMessage(this.messageHeader + getConfig().getString("permission"));
-                }
+            if (! hasPermission(sender, "reload")) {
+                messagePlayer(sender, "permission", null);
                 return true;
             }
             reloadConfig();
-            this.disabledWorlds = getConfig().getStringList("disabledWorlds");
-            if (!getConfig().getString("reload").isEmpty()) {
-                sender.sendMessage(this.messageHeader + getConfig().getString("reload"));
-            }
+            core.disabledWorlds = getConfig().getStringList("disabledWorlds");
+            messagePlayer(sender, "reload", null);
             return true;
         }
 
         // Disable a given users flight
         if (commandLabel.equalsIgnoreCase("flyoff")) {
-            if (sender.hasPermission("blazefly.flyoff")) {
-                if (args.length != 1) {
-                    return false;
-                }
-
+            if (hasPermission(sender, "flyoff")) {
+                if (args.length != 1) { return false; }
                 Player target = getPlayer(args[0]);
 
                 if ((target == null) || (!target.isOnline())) {
-                    sender.sendMessage(this.messageHeader + "No such player online");
+                    HashMap<String, String> keywords = new HashMap<>();
+                    keywords.put("%player%", args[0]);
+                    messagePlayer(sender, "notOnline", keywords);
                     return true;
                 }
-                if (!target.getAllowFlight()) {
-                    sender.sendMessage(this.messageHeader + args[0] + " isn't currently flying");
+                if (! target.getAllowFlight()) {
+                    HashMap<String, String> keywords = new HashMap<>();
+                    keywords.put("%player%", args[0]);
+                    messagePlayer(sender, "notFlying", keywords);
                     return true;
                 }
 
-                this.fallers.put(target, Integer.valueOf(2));
-                this.disabled.put(target, 1);
-                sender.sendMessage(this.messageHeader + "Flight has been disabled for " + args[0]);
-
-                if (!getConfig().getString("flyoff").isEmpty()) {
-                    target.sendMessage(this.messageHeader + getConfig().getString("flyoff"));
-                }
+                core.setFallng(target, true);
+                core.setFlying(target, false);
+                HashMap<String, String> keywords = new HashMap<>();
+                keywords.put("%player%", args[0]);
+                messagePlayer(sender, "flyoffAdmin", keywords);
+                messagePlayer(target, "flyoffPlayer", null);
                 return true;
             }
-
-            if (!getConfig().getString("permission").isEmpty()) {
-                sender.sendMessage(this.messageHeader + getConfig().getString("permission"));
-            }
+            else { messagePlayer(sender, "permission", null); }
             return true;
         }
 
-        if (!(sender instanceof Player)) {
+        // Prevent console from using flight commands
+        if (! (sender instanceof Player)) {
             sender.sendMessage("Console cannot fly");
             return true;
         }
         Player player = (Player)sender;
 
-        if ((this.disabledWorlds.contains(player.getWorld().getName())) && (!player.hasPermission("blazefly.anyworld"))) {
-            if (!getConfig().getString("disabled").isEmpty()) {
-                player.sendMessage(this.messageHeader + getConfig().getString("disabled"));
-            }
+        if ((core.disabledWorlds.contains(player.getWorld().getName())) && (! hasPermission(player, "anyworld"))) {
+            messagePlayer(player, "disabled", null);
             return true;
         }
 
-        // Enable flight
-        if (((commandLabel.equalsIgnoreCase("fly")) || (commandLabel.equalsIgnoreCase("bfly"))) && (args.length == 0)) {
-            if (!player.hasPermission("blazefly.use")) {
-                if (!getConfig().getString("permission").isEmpty()) {
-                    player.sendMessage(this.messageHeader + getConfig().getString("permission"));
-                }
+        // Fly (or bfly) command to enable/disable flight
+        if (commandLabel.equalsIgnoreCase("fly") || commandLabel.equalsIgnoreCase("bfly")) {
+            if (! hasPermission(player, "use")) {
+                messagePlayer(player, "permission", null);
                 return true;
             }
+            if (args.length > 0) { return false; }
 
-            // Turn flight off
+            // Disable flight
             if (player.getAllowFlight()) {
-                this.fallers.put(player, Integer.valueOf(2));
-                this.disabled.put(player, 1);
+                core.setFallng(player, true);
+                core.setFlying(player, false);
                 player.setAllowFlight(false);
-                if (!getConfig().getString("fDisabled").isEmpty()) {
-                    player.sendMessage(this.messageHeader + getConfig().getString("fDisabled"));
-                }
+                messagePlayer(player, "fDisabled", null);
                 return true;
             }
-            // Turn flight on
+            // Enable flight
             else {
-                if (this.broken.containsKey(player)) {
-                    if (!getConfig().getString("wBroken").isEmpty()) {
-                        player.sendMessage(this.messageHeader + getConfig().getString("wBroken"));
-                    }
+                // Wings are broken, can't fly
+                if (core.isBroken(player)) {
+                    messagePlayer(player, "wBroken", null);
                     return true;
                 }
-                if (((getFuel(player) == 0 ? 1 : 0) & (player.hasPermission("blazefly.nofuel") ? 0 : 1)) != 0) {
-                    if (!getConfig().getString("fRequired").isEmpty()) {
-                        player.sendMessage(this.messageHeader + getConfig().getString("fRequired"));
-                    }
-                    return true;
-                }
-                if (((getFuel(player) == 2 ? 1 : 0) & (player.hasPermission("blazefly.nofuel") ? 0 : 1)) != 0) {
-                    if (!getConfig().getString("fBad").isEmpty()) {
-                        player.sendMessage(this.messageHeader + getConfig().getString("fBad"));
-                    }
+                // Doesn't require fuel
+                if (hasPermission(player, "nofuel")) {
+                    messagePlayer(player, "fEnabled", null);
+                    core.setFlying(player, true);
+                    player.setAllowFlight(true);
                     return true;
                 }
 
-                if (player.hasPermission("blazefly.nofuel")) {
-                    if (!getConfig().getString("fEnabled").isEmpty()) {
-                        player.sendMessage(this.messageHeader + getConfig().getString("fEnabled"));
-                    }
-                    this.flyers.put(player, Integer.valueOf(-1));
+                // Regular and VIP players
+                if (core.hasFuel(player, fuelBlock(player), fuelSubdata(player)) || core.hasFuelCount(player)) {
+                    messagePlayer(player, "fEnabled", null);
+                    core.setFlying(player, true);
                     player.setAllowFlight(true);
+                    
+                    if (! core.hasFuelCount(player)) {
+                        core.increaseFuelCount(player, fuelTime(player));
+                        core.removeFuel(player, fuelBlock(player), fuelSubdata(player));
+                    }
+                    
+                    if (! core.hasFuel(player, fuelBlock(player), fuelSubdata(player))) {
+                        messagePlayer(player, "fLast", null);
+                    }
                 }
                 else {
-                    if (! flyers.containsKey(player)) {
-                        PlayerInventory inv = player.getInventory();
-                        if (player.hasPermission("blazefly.vip")) {
-                            this.flyers.put(player, Integer.valueOf(getConfig().getInt("VIPTime")));
-                            inv.removeItem(new ItemStack[] { new ItemStack(Material.getMaterial(getConfig().getString("VIPBlock")), 1) });
-                        }
-                        else {
-                            this.flyers.put(player, Integer.valueOf(getConfig().getInt("fuelTime")));
-                            inv.removeItem(new ItemStack[] { new ItemStack(Material.getMaterial(getConfig().getString("fuelBlock")), 1) });
-                        }
-                    }
-
-                    if (!getConfig().getString("fEnabled").isEmpty()) {
-                        player.sendMessage(this.messageHeader + getConfig().getString("fEnabled"));
-                    }
-                    if (this.disabled.containsKey(player)) { this.disabled.remove(player); }
-                    player.setAllowFlight(true);
-
-                    if ((getFuel(player) == 0) && (!getConfig().getString("fLast").isEmpty())) {
-                        player.sendMessage(this.messageHeader + getConfig().getString("fLast"));
-                    }
+                    messagePlayer(player, "fRequired", null);
+                    return true;
                 }
+                // Not giving last block message?
                 return true;
             }
         }
 
         // Change your speed of flight (1x, 2x or 4x speed)
         if (commandLabel.equalsIgnoreCase("flyspeed")) {
-            if (!player.hasPermission("blazefly.flyspeed")) {
-                if (!getConfig().getString("permission").isEmpty()) {
-                    player.sendMessage(this.messageHeader + getConfig().getString("permission"));
-                }
+            if (! hasPermission(player, "flyspeed")) {
+                messagePlayer(player, "permission", null);
                 return true;
             }
             if (getConfig().getString("allowSpeed").equalsIgnoreCase("false")) {
-                if (!getConfig().getString("fsDisabled").isEmpty()) {
-                    player.sendMessage(this.messageHeader + getConfig().getString("fsDisabled"));
-                }
+                messagePlayer(player, "fsDisabled", null);
                 return true;
             }
-            if (!player.getAllowFlight()) {
-                if (!getConfig().getString("fsFlight").isEmpty()) {
-                    player.sendMessage(this.messageHeader + getConfig().getString("fsFlight"));
-                }
+            if (! player.getAllowFlight()) {
+                messagePlayer(player, "fsFlight", null);
                 return true;
             }
 
             if (args.length == 0) {
                 if (player.getFlySpeed() == 0.1F) {
-                    if (!getConfig().getString("fsIs1").isEmpty()) {
-                        player.sendMessage(this.messageHeader + getConfig().getString("fsIs1"));
-                    }
+                    messagePlayer(player, "fs1", null);
                     return true;
                 }
                 if (player.getFlySpeed() == 0.2F) {
-                    if (!getConfig().getString("fsIs2").isEmpty()) {
-                        player.sendMessage(this.messageHeader + getConfig().getString("fsIs2"));
-                    }
+                    messagePlayer(player, "fs2", null);
                     return true;
                 }
                 if (player.getFlySpeed() == 0.4F) {
-                    if (!getConfig().getString("fsIs4").isEmpty()) {
-                        player.sendMessage(this.messageHeader + getConfig().getString("fsIs4"));
-                    }
+                    messagePlayer(player, "fs4", null);
                     return true;
                 }
             }
             else {
-                Float newSpeed = Float.valueOf(args[0]);
-                Float oldSpeed = player.getFlySpeed() * 10;
                 if (args[0].equals("1")) {
-                    if (player.getFlySpeed() != 0.1F) {
-                        player.setFlySpeed(0.1F);
-                        if (!getConfig().getString("fsNow1").isEmpty()) { player.sendMessage(this.messageHeader + getConfig().getString("fsNow1")); }
-                        if ((!player.hasPermission("blazefly.nofuel") & getConfig().getString("speedFuel").equalsIgnoreCase("true"))) {
-                            if (oldSpeed < newSpeed) {
-                                this.flyers.put(player, Math.round(this.flyers.get(player) / newSpeed));
-                            }
-                            else {
-                                this.flyers.put(player, Math.round(this.flyers.get(player) * oldSpeed));
-                            }
-                        }
-                        return true;
-                    }
-
-                    if (!getConfig().getString("fsIs1").isEmpty()) {
-                        player.sendMessage(this.messageHeader + getConfig().getString("fsIs1"));
-                    }
+                    player.setFlySpeed(0.1F);
+                    messagePlayer(player, "fs1", null);
                     return true;
                 }
-
                 if (args[0].equals("2")) {
-                    if (player.getFlySpeed() != 0.2F) {
-                        player.setFlySpeed(0.2F);
-                        if (!getConfig().getString("fsNow2").isEmpty()) {
-                            player.sendMessage(this.messageHeader + getConfig().getString("fsNow2"));
-                        }
-                        if ((!player.hasPermission("blazefly.nofuel") & getConfig().getString("speedFuel").equalsIgnoreCase("true"))) {
-                            if (oldSpeed < newSpeed) {
-                                this.flyers.put(player, Math.round(this.flyers.get(player) / newSpeed));
-                            }
-                            else {
-                                this.flyers.put(player, Math.round(this.flyers.get(player) * oldSpeed));
-                            }
-                        }
-                        return true;
-                    }
-
-                    if (!getConfig().getString("fsIs2").isEmpty()) {
-                        player.sendMessage(this.messageHeader + getConfig().getString("fsIs2"));
-                    }
+                    player.setFlySpeed(0.2F);
+                    messagePlayer(player, "fs2", null);
                     return true;
                 }
-
                 if (args[0].equals("4")) {
-                    if (player.getFlySpeed() != 0.4F) {
-                        player.setFlySpeed(0.4F);
-                        if (!getConfig().getString("fsNow4").isEmpty()) {
-                            player.sendMessage(this.messageHeader + getConfig().getString("fsNow4"));
-                        }
-                        if ((!player.hasPermission("blazefly.nofuel") & getConfig().getString("speedFuel").equalsIgnoreCase("true"))) {
-                            if (oldSpeed < newSpeed) {
-                                this.flyers.put(player, Math.round(this.flyers.get(player) / newSpeed));
-                            }
-                            else {
-                                this.flyers.put(player, Math.round(this.flyers.get(player) * oldSpeed));
-                            }
-                        }
-                        return true;
-                    }
-
-                    if (!getConfig().getString("fsIs4").isEmpty()) {
-                        player.sendMessage(this.messageHeader + getConfig().getString("fsIs4"));
-                    }
+                    player.setFlySpeed(0.4F);
+                    messagePlayer(player, "fs4", null);
                     return true;
                 }
-
-                if (!getConfig().getString("fsOptions").isEmpty()) {
-                    player.sendMessage(this.messageHeader + getConfig().getString("fsOptions"));
-                }
+                
+                messagePlayer(player, "fsOptions", null);
                 return true;
             }
+        }
+        
+        // Fuel command to check how many seconds of fuel are remaining
+        if (commandLabel.equalsIgnoreCase("fuel")) {
+            if (! hasPermission(player, "use")) {
+                messagePlayer(player, "permission", null);
+                return true;
+            }
+            if (args.length > 0) { return false; }
+        
+            if (! core.hasFuelCount(player)) {
+                if (hasPermission(player, "nofuel")) {
+                    messagePlayer(player, "fuelNA", null);
+                    return true;
+                }
+                else {
+                    messagePlayer(player, "fuelStart", null);
+                    return true;
+                }
+            }
+
+            HashMap<String, String> keywords = new HashMap<>();
+            Integer flySpeed = Math.round(player.getFlySpeed() * 10);
+            Double rawSeconds = core.getFuelCount(player) / flySpeed;
+            Integer roundSeconds = Math.round(rawSeconds.longValue());
+            keywords.put("%seconds%", roundSeconds.toString());
+            keywords.put("%flyspeed%", flySpeed.toString());
+            messagePlayer(sender, "fuelMessage", keywords);
+            return true;
         }
         return false;
     }
 
     @EventHandler
-    public void onDamage(EntityDamageEvent e) {
-        if ((e.getEntity() instanceof Player)) {
-            Player player = (Player)e.getEntity();
+    public void onDamage(EntityDamageEvent event) {
+        if ((event.getEntity() instanceof Player)) {
+            Player player = (Player)event.getEntity();
 
             // Protect players falling due to running out of fuel, if enabled
-            if ((e.getCause().equals(EntityDamageEvent.DamageCause.FALL)) && (this.fallers.containsKey(player))) {
+            if ((event.getCause().equals(EntityDamageEvent.DamageCause.FALL)) && (core.isFalling(player))) {
                 if (getConfig().getBoolean("fallProtection")) {
-                    e.setCancelled(true);
+                    event.setCancelled(true);
                     return;
                 }
             }
 
             // Ignore these types of damage
-            if (e.getCause().equals(EntityDamageEvent.DamageCause.DROWNING)) { return; }
-            if (e.getCause().equals(EntityDamageEvent.DamageCause.STARVATION)) { return; }
-            
+            if (event.getCause().equals(EntityDamageEvent.DamageCause.DROWNING)) { return; }
+            if (event.getCause().equals(EntityDamageEvent.DamageCause.STARVATION)) { return; }
+            if (event.getDamage() == 0) { return; }
+
             // PvP stuff, break wings (disallow flight) if player takes damage
-            if ((getConfig().getBoolean("breakableWings")) && (! player.hasPermission("blazefly.superwings")) && (this.flyers.containsKey(player))) {
-                this.fallers.put(player, Integer.valueOf(2));
-                this.broken.put(player, Integer.valueOf(getConfig().getInt("healTime")));
+            if ((getConfig().getBoolean("breakableWings")) && (! hasPermission(player, "superwings")) && (core.isFlying(player))) {
+                core.setFallng(player, true);
+                core.setFlying(player, false);
+                core.setBrokenCounter(player, getConfig().getDouble("healTime"));
                 player.setAllowFlight(false);
-                if (!getConfig().getString("wBroke").isEmpty()) {
-                    player.sendMessage(this.messageHeader + getConfig().getString("wBroke"));
-                }
+                messagePlayer(player, "wBroke", null);
+            }
+        }
+    }
+
+    // Reset a players flyspeed when they join the server to ensure it's set to 1x
+    @EventHandler
+    public void onPlayerJoin(PlayerJoinEvent event){
+        event.getPlayer().setFlySpeed(0.1F);
+    }
+    
+    // Clear broken wing counter if player dies
+    @EventHandler
+    public void onDeath(PlayerDeathEvent event) {
+        if ((event.getEntity() instanceof Player)) {
+            Player player = (Player)event.getEntity();
+        
+            if (core.isBroken(player)) {
+                core.removeBroken(player);
+                player.setAllowFlight(true);
+                core.setFlying(player, true);
+                messagePlayer(player, "wHealed", null);
             }
         }
     }
