@@ -9,6 +9,8 @@
 ##############################
     # Check and alert when a newer version is available
     updateChecker: true
+    # Message admins as they log in if a new version is available
+    notifyAdmin: true
     # The name of the block to be used as fuel
     fuelBlock: "BLAZE_ROD"
     # If you don't know what this is, leave it as 0

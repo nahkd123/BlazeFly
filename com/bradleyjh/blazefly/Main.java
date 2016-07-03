@@ -30,8 +30,10 @@ import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 
+
 public class Main extends JavaPlugin implements Listener {
     Core core = new Core();
+    String updateAvailable;
 
     public void onEnable() {
         saveDefaultConfig();
@@ -215,7 +217,6 @@ public class Main extends JavaPlugin implements Listener {
                     messagePlayer(player, "fRequired", null);
                     return true;
                 }
-                // Not giving last block message?
                 return true;
             }
         }
@@ -331,10 +332,16 @@ public class Main extends JavaPlugin implements Listener {
         }
     }
 
-    // Reset a players flyspeed when they join the server to ensure it's set to 1x
+    // Reset flyspeed & message admins for new versions
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event){
         event.getPlayer().setFlySpeed(0.1F);
+        
+        if (hasPermission(event.getPlayer(), "updates") && updateAvailable != null) {
+            String header = getConfig().getString("header");
+            String message = header + updateAvailable + " is available for download";
+            event.getPlayer().sendMessage(ChatColor.translateAlternateColorCodes('&', message));
+        }
     }
     
     // Clear broken wing counter if player dies

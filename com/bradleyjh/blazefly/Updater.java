@@ -50,6 +50,7 @@ public class Updater implements Runnable {
                 JSONObject latest = (JSONObject) array.get(array.size() - 1);
                 String latestVersion = (String) latest.get("name");
                 if (! latestVersion.equalsIgnoreCase(thisVersion)) {
+                    main.updateAvailable = latestVersion;
                     main.getLogger().info(latestVersion + " is available for download!");
                 }
             }

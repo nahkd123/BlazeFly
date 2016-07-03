@@ -1,5 +1,5 @@
 name: BlazeFly
-version: 3.0
+version: 3.1
 author: bradleyjh@outlook.com
 description: Provides the ability to fly at the cost of fuel
 main: com.bradleyjh.blazefly.Main
@@ -48,4 +48,7 @@ permissions:
         default: op
     blazefly.reload:
         description: Allows the use of /bfreload
+        default: op
+    blazefly.updates:
+        description: Player will be messaged when new versions are available
         default: op

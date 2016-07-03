@@ -17,7 +17,7 @@
 
 package com.bradleyjh.blazefly;
 
-import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.List;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.PlayerInventory;
@@ -26,10 +26,10 @@ import org.bukkit.Material;
 import org.bukkit.inventory.meta.ItemMeta;
 
 public class Core {
-    public HashMap<Player, Boolean> flying = new HashMap<>();
-    private HashMap<Player, Double> fuel = new HashMap<>();
-    private HashMap<Player, Double> broken = new HashMap<>();
-    private HashMap<Player, Boolean> falling = new HashMap<>();
+    public ConcurrentHashMap<Player, Boolean> flying = new ConcurrentHashMap<>();
+    private ConcurrentHashMap<Player, Double> fuel = new ConcurrentHashMap<>();
+    private ConcurrentHashMap<Player, Double> broken = new ConcurrentHashMap<>();
+    private ConcurrentHashMap<Player, Boolean> falling = new ConcurrentHashMap<>();
     public List<String> disabledWorlds;
     private Long lastTime;
     
