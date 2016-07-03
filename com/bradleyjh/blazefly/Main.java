@@ -40,7 +40,7 @@ public class Main extends JavaPlugin implements Listener {
         core.disabledWorlds = getConfig().getStringList("disabledWorlds");
         getServer().getPluginManager().registerEvents(this, this);
         if (getConfig().getBoolean("updateChecker")) {
-            getServer().getScheduler().runTaskAsynchronously(this, new Updater(this, getDescription().getFullName()));
+            getServer().getScheduler().runTaskAsynchronously(this, new Updater(this, getDescription().getVersion()));
         }
         getServer().getScheduler().scheduleSyncRepeatingTask(this, new Timer(this), 10L, 10L);
 

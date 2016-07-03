@@ -48,10 +48,18 @@ public class Updater implements Runnable {
 
             if (array.size() > 0) {
                 JSONObject latest = (JSONObject) array.get(array.size() - 1);
-                String latestVersion = (String) latest.get("name");
-                if (! latestVersion.equalsIgnoreCase(thisVersion)) {
-                    main.updateAvailable = latestVersion;
-                    main.getLogger().info(latestVersion + " is available for download!");
+                String latestFile = (String) latest.get("name");
+                
+                // SomePlugin v2.3 = "230", SomePlugin v2.3.4 = "234"
+                // means we can check if the newer file is a newer version
+                String latestVersion = latestFile.replaceAll("\\D+","");
+                if (latestVersion.length() == 2) { latestVersion = latestVersion + "0"; }
+                thisVersion = thisVersion.replaceAll("\\D+","");
+                if (thisVersion.length() == 2) { thisVersion = thisVersion + "0"; }
+                
+                if (Integer.parseInt(latestVersion) > Integer.parseInt(thisVersion)) {
+                    main.updateAvailable = latestFile;
+                    main.getLogger().info(latestFile + " is available for download!");
                 }
             }
         } catch (IOException e) { return; }
