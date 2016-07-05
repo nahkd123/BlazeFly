@@ -31,12 +31,14 @@ public class Timer implements Runnable {
             Iterator<Player> iter = main.core.flying.keySet().iterator();
             while (iter.hasNext()) {
                 Player player = (Player)iter.next();
-                Double timePassed = main.core.getTimePassed();
                 
                 // If they went offline sanitize stuff
                 if (! player.isOnline()) {
                     main.core.clearPlayer(player);
                 }
+                
+                // If they aren't in the correct mode, don't adjust anything
+                if (! main.correctMode(player)) { continue; }
                 
                 // Ensure flight is always in the correct state (changing worlds etc)
                 if (main.core.isFlying(player)) { player.setAllowFlight(true); }
@@ -61,7 +63,7 @@ public class Timer implements Runnable {
                 // Check if the players "wings" have "healed"
                 if (main.core.isBroken(player)) {
                     if (main.core.getBrokenCount(player) > 1) {
-                        main.core.decreaseBrokenCounter(player, timePassed);
+                        main.core.decreaseBrokenCounter(player, 0.25);
                     }
                     else {
                         main.core.removeBroken(player);
@@ -88,7 +90,7 @@ public class Timer implements Runnable {
                     }
                     // Update the players remaining time
                     else {
-                        if (! main.core.isFlying(player)) { continue; } // If they aren't flying don't use fuel
+                        if (! main.core.isFlying(player)) { continue; } // If they aren't flying, don't use fuel
                         Double fuelMultiplier = 1.0;
                         Location block = new Location(player.getWorld(), player.getLocation().getBlockX(), Math.ceil(player.getLocation().getY()) - 1, player.getLocation().getBlockZ());
                         if (! block.getBlock().getType().equals(Material.AIR)) {
@@ -101,7 +103,7 @@ public class Timer implements Runnable {
                             }
                         }
                         
-                        main.core.decreaseFuelCount(player, (timePassed * fuelMultiplier));
+                        main.core.decreaseFuelCount(player, (0.25 * fuelMultiplier));
                     }
                 }
             } 

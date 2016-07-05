@@ -48,6 +48,7 @@
     permission: "&CYou do not have permission to use this command"
     reload: "Configuration reloaded"
     disabled: "Flight is currently disabled in this world"
+    mode: "You must be in survival or adventure mode to use BlazeFly"
     
     flyoffAdmin: "Flight has been disabled for %player%"
     flyoffPlayer: "Flight has been disabled for you by an administrator"

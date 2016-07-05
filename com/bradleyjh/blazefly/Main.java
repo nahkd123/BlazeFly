@@ -29,6 +29,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.GameMode;
 
 
 public class Main extends JavaPlugin implements Listener {
@@ -42,7 +43,7 @@ public class Main extends JavaPlugin implements Listener {
         if (getConfig().getBoolean("updateChecker")) {
             getServer().getScheduler().runTaskAsynchronously(this, new Updater(this, getDescription().getVersion()));
         }
-        getServer().getScheduler().scheduleSyncRepeatingTask(this, new Timer(this), 10L, 10L);
+        getServer().getScheduler().scheduleSyncRepeatingTask(this, new Timer(this), 5L, 5L);
 
         // For server reload disable flight and protect fallers
         for (Player player : getServer().getOnlinePlayers()) {
@@ -108,6 +109,13 @@ public class Main extends JavaPlugin implements Listener {
         if (hasPermission(player, "vip")) { return getConfig().getDouble("VIPTime") - 1; }
         else { return getConfig().getDouble("fuelTime") - 1; }
     }
+    
+    // Make sure the gamemode is applicable for BlazeFly
+    public Boolean correctMode (Player player) {
+        if (player.getGameMode() == GameMode.SURVIVAL) { return true; }
+        if (player.getGameMode() == GameMode.ADVENTURE) { return true; }
+        return false;
+    }
 
     // Process incoming commands
     public boolean onCommand(CommandSender sender, Command cmd, String commandLabel, String[] args) {
@@ -161,6 +169,12 @@ public class Main extends JavaPlugin implements Listener {
             return true;
         }
         Player player = (Player)sender;
+        
+        // If they aren't in the correct mode, ignore commands
+        if (! correctMode(player)) {
+            messagePlayer(player, "mode", null);
+            return true;
+        }
 
         if ((core.disabledWorlds.contains(player.getWorld().getName())) && (! hasPermission(player, "anyworld"))) {
             messagePlayer(player, "disabled", null);

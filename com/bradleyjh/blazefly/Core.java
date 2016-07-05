@@ -31,20 +31,7 @@ public class Core {
     private ConcurrentHashMap<Player, Double> broken = new ConcurrentHashMap<>();
     private ConcurrentHashMap<Player, Boolean> falling = new ConcurrentHashMap<>();
     public List<String> disabledWorlds;
-    private Long lastTime;
-    
-    // Get the time that has passed since the last Timer() ran
-    public Double getTimePassed() {
-        if (lastTime == null) {
-            lastTime = System.currentTimeMillis();
-            return 0.500;
-        }
-        
-        Long t = System.currentTimeMillis() - lastTime;
-        lastTime = System.currentTimeMillis();
-        return t.doubleValue() / 1000;
-    }
-    
+
     // Completely remove a player
     public void clearPlayer(Player player) {
         if (flying.containsKey(player)) { flying.remove(player); }
