@@ -46,7 +46,7 @@ public class Main extends JavaPlugin implements Listener {
 
         // For server reload disable flight and protect fallers
         for (Player player : getServer().getOnlinePlayers()) {
-            if (player.getAllowFlight()) {
+            if (player.getAllowFlight() && correctMode(player)) {
                 messagePlayer(player, "fReload", null);
                 core.setFallng(player, true);
                 core.setFlying(player, false);
