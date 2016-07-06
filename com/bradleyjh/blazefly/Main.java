@@ -31,7 +31,6 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.GameMode;
 
-
 public class Main extends JavaPlugin implements Listener {
     Core core = new Core();
     String updateAvailable;
@@ -228,7 +227,12 @@ public class Main extends JavaPlugin implements Listener {
                     }
                 }
                 else {
-                    messagePlayer(player, "fRequired", null);
+                    String fuel = getConfig().getString("fuelName");
+                    if (hasPermission(player, "VIP")) { fuel = getConfig().getString("VIPName"); }
+                    
+                    HashMap<String, String> keywords = new HashMap<>();
+                    keywords.put("%fuel%", fuel);
+                    messagePlayer(player, "fRequired", keywords);
                     return true;
                 }
                 return true;

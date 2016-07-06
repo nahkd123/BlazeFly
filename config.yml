@@ -15,12 +15,16 @@
     fuelBlock: "BLAZE_ROD"
     # If you don't know what this is, leave it as 0
     fuelSubdata: 0
+    # What users are told to use for fuel
+    fuelName: "Blaze rods"
     # The time in seconds each block of fuel will last
     fuelTime: 60
     # The name of the block to be used as fuel for VIPs
     VIPBlock: "COAL"
     # If you don't know what this is, leave it as 0
     VIPSubdata: 0
+    # What users are told to use for fuel (for VIP fuel)
+    VIPName: "Coal"
     # The time in seconds each block of fuel will last for VIPs
     VIPTime: 120
     # Amount of fuel to use while grounded (0.5 = half, 1 = full, etc)
@@ -62,7 +66,7 @@
     fEnabled: "Flight enabled"
     fDisabled: "Flight disabled"
     fReload: "Flight has been disabled due to a server reload"
-    fRequired: "Flight requires fuel"
+    fRequired: "Flight requires fuel (%fuel%)"
     fLast: "WARNING: You are now on your last block of fuel!"
     fOut: "You are out of fuel, flight has been disabled"
 
