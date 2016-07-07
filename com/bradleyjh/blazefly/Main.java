@@ -16,9 +16,9 @@
 ////////////////////////////////////////////////////////////////////////////
 
 package com.bradleyjh.blazefly;
+
 import java.util.HashMap;
 import java.util.Iterator;
-
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.event.Listener;
 import org.bukkit.entity.Player;
@@ -30,20 +30,29 @@ import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.GameMode;
+import org.bukkit.Material;
+import net.milkbowl.vault.item.Items;
+import net.milkbowl.vault.item.ItemInfo;
+import java.io.File;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 
 public class Main extends JavaPlugin implements Listener {
     Core core = new Core();
     String updateAvailable;
-
+    File stringsFile = new File(getDataFolder() + File.separator + "strings.yml");
+    FileConfiguration strings = YamlConfiguration.loadConfiguration(stringsFile);
+    
     public void onEnable() {
         saveDefaultConfig();
+        if(! stringsFile.exists()) { saveResource("strings.yml", false); }
         core.disabledWorlds = getConfig().getStringList("disabledWorlds");
         getServer().getPluginManager().registerEvents(this, this);
         if (getConfig().getBoolean("updateChecker")) {
             getServer().getScheduler().runTaskAsynchronously(this, new Updater(this, getDescription().getVersion()));
         }
         getServer().getScheduler().scheduleSyncRepeatingTask(this, new Timer(this), 5L, 5L);
-
+        
         // For server reload disable flight and protect fallers
         for (Player player : getServer().getOnlinePlayers()) {
             if (player.getAllowFlight() && correctMode(player)) {
@@ -65,10 +74,10 @@ public class Main extends JavaPlugin implements Listener {
     
     // Send a configurable message to a command sender
     public void messagePlayer (CommandSender sender, String type, HashMap<String, String> keywords) {
-        if (! Main.this.getConfig().getString(type).isEmpty()) {
-            
+        if (! strings.getString(type).isEmpty()) {
+
             // Get the header and the string
-            String message = getConfig().getString("header") + getConfig().getString(type);
+            String message = strings.getString("header") + strings.getString(type);
             
             // Replace keywords if they were provided
             if (keywords != null) {
@@ -93,8 +102,8 @@ public class Main extends JavaPlugin implements Listener {
     
     // Get the fuel block currently used
     public String fuelBlock(Player player) {
-        if (hasPermission(player, "vip")) { return getConfig().getString("VIPBlock"); }
-        else { return getConfig().getString("fuelBlock"); }
+        if (hasPermission(player, "vip")) { return getConfig().getString("VIPBlock").toUpperCase(); }
+        else { return getConfig().getString("fuelBlock").toUpperCase(); }
     }
     
     // Get the fuel subdata currently used
@@ -126,6 +135,8 @@ public class Main extends JavaPlugin implements Listener {
                 return true;
             }
             reloadConfig();
+            stringsFile = new File(getDataFolder() + File.separator + "strings.yml");
+            strings = YamlConfiguration.loadConfiguration(stringsFile);
             core.disabledWorlds = getConfig().getStringList("disabledWorlds");
             messagePlayer(sender, "reload", null);
             return true;
@@ -227,11 +238,12 @@ public class Main extends JavaPlugin implements Listener {
                     }
                 }
                 else {
-                    String fuel = getConfig().getString("fuelName");
-                    if (hasPermission(player, "VIP")) { fuel = getConfig().getString("VIPName"); }
-                    
+                    Integer subdata = fuelSubdata(player);
+                    ItemInfo info = Items.itemByType(Material.getMaterial(fuelBlock(player)), subdata.shortValue());
+                    String name = "Invalid config";
+                    if (info != null) { name = info.getName(); }
                     HashMap<String, String> keywords = new HashMap<>();
-                    keywords.put("%fuel%", fuel);
+                    keywords.put("%fuel%", name);
                     messagePlayer(player, "fRequired", keywords);
                     return true;
                 }

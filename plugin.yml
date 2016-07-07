@@ -3,6 +3,7 @@ version: 3.2
 author: bradleyjh@outlook.com
 description: Provides the ability to fly at the cost of fuel
 main: com.bradleyjh.blazefly.Main
+depend: [Vault]
 
 commands:
     fly:

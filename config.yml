@@ -1,12 +1,9 @@
 #####################################
 ###                               ###
-###  BlazeFly Configuration file  ###
+###  BlazeFly configuration file  ###
 ###                               ###
 #####################################
 
-
-##      Main settings       ##
-##############################
     # Check and alert when a newer version is available
     updateChecker: true
     # Message admins as they log in if a new version is available
@@ -15,16 +12,12 @@
     fuelBlock: "BLAZE_ROD"
     # If you don't know what this is, leave it as 0
     fuelSubdata: 0
-    # What users are told to use for fuel
-    fuelName: "Blaze rods"
     # The time in seconds each block of fuel will last
     fuelTime: 60
     # The name of the block to be used as fuel for VIPs
     VIPBlock: "COAL"
     # If you don't know what this is, leave it as 0
     VIPSubdata: 0
-    # What users are told to use for fuel (for VIP fuel)
-    VIPName: "Coal"
     # The time in seconds each block of fuel will last for VIPs
     VIPTime: 120
     # Amount of fuel to use while grounded (0.5 = half, 1 = full, etc)
@@ -42,41 +35,5 @@
 
     # A list of worlds that BlazeFly will be disabled in
     disabledWorlds:
-        - 'world_nether'
-        - 'world_end'
-
-
-##     String settings      ##
-##############################
-    header: "&6[BlazeFly] &7"
-    permission: "&CYou do not have permission to use this command"
-    reload: "Configuration reloaded"
-    disabled: "Flight is currently disabled in this world"
-    mode: "You must be in survival or adventure mode to use BlazeFly"
-    
-    flyoffAdmin: "Flight has been disabled for %player%"
-    flyoffPlayer: "Flight has been disabled for you by an administrator"
-    notOnline: "%player% is not online"
-    notFlying: "%player% is not currently flying"
-    
-    wBroke: "Your wings have been damaged, you're unable to fly"
-    wBroken: "You cannot fly with damaged wings"
-    wHealed: "Your wings have recovered"
-
-    fEnabled: "Flight enabled"
-    fDisabled: "Flight disabled"
-    fReload: "Flight has been disabled due to a server reload"
-    fRequired: "Flight requires fuel (%fuel%)"
-    fLast: "WARNING: You are now on your last block of fuel!"
-    fOut: "You are out of fuel, flight has been disabled"
-
-    fsDisabled: "Flyspeed is currently disabled"
-    fsFlight: "Flight must be enabled to use flyspeed"
-    fs1: "Flyspeed set to x1"
-    fs2: "Flyspeed set to x2"
-    fs4: "Flyspeed set to x4"
-    fsOptions: "The options for flyspeed are 1, 2, 4"
-    
-    fuelStart: "Start flying to use this command"
-    fuelNA: "You don't require fuel to fly"
-    fuelMessage: "You have %seconds% seconds of fuel remaining at flyspeed %flyspeed%"
+        - 'world5'
+        - 'world5_nether'
