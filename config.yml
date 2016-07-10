@@ -10,12 +10,16 @@
     notifyAdmin: true
     # The name of the block to be used as fuel
     fuelBlock: "BLAZE_ROD"
+    # What users will be told is fuel
+    fuelName: "Blaze Rod"
     # If you don't know what this is, leave it as 0
     fuelSubdata: 0
     # The time in seconds each block of fuel will last
     fuelTime: 60
     # The name of the block to be used as fuel for VIPs
     VIPBlock: "COAL"
+    # What VIP users will be told is fuel
+    VIPName: "Coal"
     # If you don't know what this is, leave it as 0
     VIPSubdata: 0
     # The time in seconds each block of fuel will last for VIPs

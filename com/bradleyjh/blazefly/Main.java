@@ -30,9 +30,6 @@ import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.GameMode;
-import org.bukkit.Material;
-import net.milkbowl.vault.item.Items;
-import net.milkbowl.vault.item.ItemInfo;
 import java.io.File;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -238,12 +235,10 @@ public class Main extends JavaPlugin implements Listener {
                     }
                 }
                 else {
-                    Integer subdata = fuelSubdata(player);
-                    ItemInfo info = Items.itemByType(Material.getMaterial(fuelBlock(player)), subdata.shortValue());
-                    String name = "Invalid config";
-                    if (info != null) { name = info.getName(); }
+                    String fuelName = getConfig().getString("fuelName");
+                    if (hasPermission(player, "vip")) { fuelName = getConfig().getString("VIPName"); }
                     HashMap<String, String> keywords = new HashMap<>();
-                    keywords.put("%fuel%", name);
+                    keywords.put("%fuel%", fuelName);
                     messagePlayer(player, "fRequired", keywords);
                     return true;
                 }
