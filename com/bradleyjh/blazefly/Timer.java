@@ -34,42 +34,39 @@ public class Timer implements Runnable {
                 
                 // If they went offline sanitize stuff
                 if (! player.isOnline()) {
+                    main.core.storePlayer(player);
                     main.core.clearPlayer(player);
                 }
                 
                 // If they aren't in the correct mode, don't adjust anything
                 if (! main.correctMode(player)) { continue; }
-                
-                // Ensure flight is always in the correct state (changing worlds etc)
-                if (main.core.isFlying(player)) { player.setAllowFlight(true); }
-                else { player.setAllowFlight(false); }
 
                 // They moved to a world where flight is disable and don't have the anyworld permission
                 if (main.core.isFlying(player) && main.core.disabledWorlds.contains(player.getWorld().getName()) && ! main.hasPermission(player, "anyworld")) {
-                    main.core.setFallng(player, true);
+                    main.core.setFalling(player, true);
                     main.core.setFlying(player, false);
                     player.setAllowFlight(false);
-                    main.messagePlayer(player, "disabled", null);
+                    main.core.messagePlayer(player, "disabled", null);
                 }
                 
                 // Check if they have "landed" to disable fall protection
                 if (main.core.isFalling(player)) {
                     Location block = new Location(player.getWorld(), player.getLocation().getBlockX(), Math.ceil(player.getLocation().getY()) - 1, player.getLocation().getBlockZ());
                     if (! block.getBlock().getType().equals(Material.AIR)) {
-                        main.core.setFallng(player, false);
+                        main.core.setFalling(player, false);
                     }
                 }
                 
                 // Check if the players "wings" have "healed"
                 if (main.core.isBroken(player)) {
                     if (main.core.getBrokenCount(player) > 1) {
-                        main.core.decreaseBrokenCounter(player, 0.25);
+                        main.core.decreaseBrokenCounter(player, 0.50);
                     }
                     else {
                         main.core.removeBroken(player);
                         player.setAllowFlight(true);
                         main.core.setFlying(player, true);
-                        main.messagePlayer(player, "wHealed", null);
+                        main.core.messagePlayer(player, "wHealed", null);
                     }  
                 }
 
@@ -79,11 +76,11 @@ public class Timer implements Runnable {
                             if (main.core.hasFuel(player, main.fuelBlock(player), main.fuelSubdata(player))) {
                                 main.core.increaseFuelCount(player, main.fuelTime(player));
                                 main.core.removeFuel(player, main.fuelBlock(player), main.fuelSubdata(player));
-                                if (! main.core.hasFuel(player, main.fuelBlock(player), main.fuelSubdata(player))) { main.messagePlayer(player, "fLast", null); }
+                                if (! main.core.hasFuel(player, main.fuelBlock(player), main.fuelSubdata(player))) { main.core.messagePlayer(player, "fLast", null); }
                             }
                             else {
-                                main.messagePlayer(player, "fOut", null);
-                                main.core.setFallng(player, true);
+                                main.core.messagePlayer(player, "fOut", null);
+                                main.core.setFalling(player, true);
                                 main.core.setFlying(player, false);
                                 player.setAllowFlight(false);
                             }
@@ -103,7 +100,7 @@ public class Timer implements Runnable {
                             }
                         }
                         
-                        main.core.decreaseFuelCount(player, (0.25 * fuelMultiplier));
+                        main.core.decreaseFuelCount(player, (0.50 * fuelMultiplier));
                     }
                 }
             } 

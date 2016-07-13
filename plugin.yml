@@ -9,10 +9,10 @@ commands:
         description: Enables/disables flight
         usage: /fly
     bfly:
-        description: Enables/disables flight
+        description: An alias for /fly
         usage: /bfly
     flyspeed:
-        description: Used to modify the speed of flight
+        description: Used to modify the flight speed
         usage: /flyspeed [multiplier]
     fuel:
         description: Used to check seconds of fuel remaining
@@ -21,7 +21,7 @@ commands:
         description: Disables flight for the given user
         usage: /flyoff [player]
     bfreload:
-        description: Reloads the config file
+        description: Reloads the configuration file
         usage: /bfreload
 
 permissions:

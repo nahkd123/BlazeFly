@@ -16,12 +16,13 @@
     notFlying: "%player% is not currently flying"
     
     wBroke: "Your wings have been damaged, you're unable to fly"
+    wResumed: "Flight has resumed but your wings remain damaged"
     wBroken: "You cannot fly with damaged wings"
     wHealed: "Your wings have recovered"
 
     fEnabled: "Flight enabled"
+    fResumed: "Flight has resumed"
     fDisabled: "Flight disabled"
-    fReload: "Flight has been disabled due to a server reload"
     fRequired: "Flight requires fuel (%fuel%)"
     fLast: "WARNING: You are now on your last block of fuel!"
     fOut: "You are out of fuel, flight has been disabled"

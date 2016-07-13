@@ -18,11 +18,20 @@
 package com.bradleyjh.blazefly;
 
 import java.util.concurrent.ConcurrentHashMap;
+import java.io.File;
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.Material;
+import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.inventory.meta.ItemMeta;
 
 public class Core {
@@ -31,6 +40,10 @@ public class Core {
     private ConcurrentHashMap<Player, Double> broken = new ConcurrentHashMap<>();
     private ConcurrentHashMap<Player, Boolean> falling = new ConcurrentHashMap<>();
     public List<String> disabledWorlds;
+    public File playersFile;
+    public FileConfiguration players;
+    public File stringsFile;
+    public FileConfiguration strings;
 
     // Completely remove a player
     public void clearPlayer(Player player) {
@@ -38,6 +51,99 @@ public class Core {
         if (fuel.containsKey(player)) { fuel.remove(player); }
         if (broken.containsKey(player)) { broken.remove(player); }
         if (falling.containsKey(player)) { falling.remove(player); }
+    }
+    
+    // Store a player in players.yml (for players leaving)
+    public void storePlayer(Player player) {
+        players.createSection(player.getUniqueId().toString());
+        if (flying.containsKey(player)) { players.set(player.getUniqueId() + ".flying", flying.get(player).booleanValue()); }
+        if (fuel.containsKey(player)) { players.set(player.getUniqueId() + ".fuel", fuel.get(player).intValue()); }
+        if (broken.containsKey(player)) { players.set(player.getUniqueId() + ".broken", broken.get(player).intValue()); }
+        if (falling.containsKey(player)) { players.set(player.getUniqueId() + ".falling", falling.get(player).booleanValue()); }
+        try { players.save(playersFile); } catch (IOException e) { return; }
+    }
+    
+    // Retrieve a player from players.yml (for players joining)
+    public void retrievePlayer (Player player) {
+        if (players.isConfigurationSection(player.getUniqueId().toString())) {
+            ConfigurationSection section = players.getConfigurationSection(player.getUniqueId().toString());
+
+            setFlying(player, section.getBoolean("flying"));
+            increaseFuelCount(player, section.getDouble("fuel"));
+            if (section.getDouble("broken") > 0.0) { setBrokenCounter(player, section.getDouble("broken")); }
+            setFalling(player, section.getBoolean("falling"));
+            if (isBroken(player)) { messagePlayer(player, "wResumed", null); }
+            
+            if (isFlying(player)) {
+                player.setAllowFlight(true);
+                player.setFlying(true);
+                messagePlayer(player, "fResumed", null);
+            }
+
+            players.set(player.getUniqueId().toString(), null);
+            try { players.save(playersFile); } catch (IOException e) { return; }
+        }
+    }
+    
+    // Store all players in players.yml (for onDisable)
+    public void storeAll() {
+        if (! flying.isEmpty()) {
+            Iterator<Player> iter = flying.keySet().iterator();
+            while (iter.hasNext()) {
+                Player player = (Player)iter.next();
+                players.createSection(player.getUniqueId().toString());
+                if (flying.containsKey(player)) { players.set(player.getUniqueId() + ".flying", flying.get(player).booleanValue()); }
+                if (fuel.containsKey(player)) { players.set(player.getUniqueId() + ".fuel", fuel.get(player).intValue()); }
+                if (broken.containsKey(player)) { players.set(player.getUniqueId() + ".broken", broken.get(player).intValue()); }
+                if (falling.containsKey(player)) { players.set(player.getUniqueId() + ".falling", falling.get(player).booleanValue()); }
+            }
+            try { players.save(playersFile); } catch (IOException e) { return; }
+        }
+    }
+    
+    // Retrieve all players from players.yml (for onEnable)
+    public void retrieveAll() {
+        for (Player player : Bukkit.getServer().getOnlinePlayers()) {
+            if (players.isConfigurationSection(player.getUniqueId().toString())) {
+                ConfigurationSection section = players.getConfigurationSection(player.getUniqueId().toString());
+
+                setFlying(player, section.getBoolean("flying"));
+                increaseFuelCount(player, section.getDouble("fuel"));
+                if (section.getDouble("broken") > 0.0) { setBrokenCounter(player, section.getDouble("broken")); }
+                setFalling(player, section.getBoolean("falling"));
+                
+                if (isFlying(player)) {
+                    player.setAllowFlight(true);
+                    player.setFlying(true);
+                }
+                
+                players.set(player.getUniqueId().toString(), null);
+            }
+        }
+
+        try { players.save(playersFile); } catch (IOException e) { return; }
+    }
+    
+    // Send a configurable message to a command sender
+    public void messagePlayer (CommandSender sender, String type, HashMap<String, String> keywords) {
+        if (strings.contains(type)) {
+
+            // Get the header and the string
+            String message = strings.getString("header") + strings.getString(type);
+            
+            // Replace keywords if they were provided
+            if (keywords != null) {
+                Iterator<String> iter = keywords.keySet().iterator();
+                while (iter.hasNext()) {
+                    String keyword = iter.next();
+                    String replacement = keywords.get(keyword);
+                    message = message.replace(keyword, replacement);
+                }
+            }
+            
+            // Apply formatting
+            sender.sendMessage(ChatColor.translateAlternateColorCodes('&', message));
+        }
     }
     
     // Flying stuff
@@ -68,7 +174,7 @@ public class Core {
     }
 
     // Falling stuff (Some hacky stuff to prevent occasional damage happening)
-    public void setFallng(Player player, Boolean val) {
+    public void setFalling(Player player, Boolean val) {
         falling.put(player, val);
     }
     public Boolean isFalling(Player player) {

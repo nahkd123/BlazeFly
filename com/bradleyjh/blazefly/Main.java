@@ -18,7 +18,7 @@
 package com.bradleyjh.blazefly;
 
 import java.util.HashMap;
-import java.util.Iterator;
+import java.io.File;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.event.Listener;
 import org.bukkit.entity.Player;
@@ -29,36 +29,33 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.player.PlayerGameModeChangeEvent;
 import org.bukkit.GameMode;
-import java.io.File;
-import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 public class Main extends JavaPlugin implements Listener {
     Core core = new Core();
     String updateAvailable;
-    File stringsFile = new File(getDataFolder() + File.separator + "strings.yml");
-    FileConfiguration strings = YamlConfiguration.loadConfiguration(stringsFile);
     
     public void onEnable() {
         saveDefaultConfig();
-        if(! stringsFile.exists()) { saveResource("strings.yml", false); }
+        core.stringsFile = new File(getDataFolder() + File.separator + "strings.yml");
+        if (! core.stringsFile.exists()) { saveResource("strings.yml", false); }
+        core.strings = YamlConfiguration.loadConfiguration(core.stringsFile);
+        core.playersFile = new File(getDataFolder() + File.separator + "players.yml");
+        core.players = YamlConfiguration.loadConfiguration(core.playersFile);
+        
+        core.retrieveAll();
         core.disabledWorlds = getConfig().getStringList("disabledWorlds");
         getServer().getPluginManager().registerEvents(this, this);
         if (getConfig().getBoolean("updateChecker")) {
             getServer().getScheduler().runTaskAsynchronously(this, new Updater(this, getDescription().getVersion()));
         }
-        getServer().getScheduler().scheduleSyncRepeatingTask(this, new Timer(this), 5L, 5L);
-        
-        // For server reload disable flight and protect fallers
-        for (Player player : getServer().getOnlinePlayers()) {
-            if (player.getAllowFlight() && correctMode(player)) {
-                messagePlayer(player, "fReload", null);
-                core.setFallng(player, true);
-                core.setFlying(player, false);
-                player.setAllowFlight(false);
-            }
-        }
+        getServer().getScheduler().scheduleSyncRepeatingTask(this, new Timer(this), 10L, 10L);
+    }
+    
+    public void onDisable() {
+        core.storeAll();
     }
 
     // Replaces the deprecated getServer().getPlayer()
@@ -67,28 +64,6 @@ public class Main extends JavaPlugin implements Listener {
             if (player.getName().equalsIgnoreCase(name)) { return player; }
         }
         return null;
-    }
-    
-    // Send a configurable message to a command sender
-    public void messagePlayer (CommandSender sender, String type, HashMap<String, String> keywords) {
-        if (! strings.getString(type).isEmpty()) {
-
-            // Get the header and the string
-            String message = strings.getString("header") + strings.getString(type);
-            
-            // Replace keywords if they were provided
-            if (keywords != null) {
-                Iterator<String> iter = keywords.keySet().iterator();
-                while (iter.hasNext()) {
-                    String keyword = iter.next();
-                    String replacement = keywords.get(keyword);
-                    message = message.replace(keyword, replacement);
-                }
-            }
-            
-            // Apply formatting
-            sender.sendMessage(ChatColor.translateAlternateColorCodes('&', message));
-        }
     }
     
     // Check permissions
@@ -128,14 +103,14 @@ public class Main extends JavaPlugin implements Listener {
         // Reload the configuration file
         if (commandLabel.equalsIgnoreCase("bfreload")) {
             if (! hasPermission(sender, "reload")) {
-                messagePlayer(sender, "permission", null);
+                core.messagePlayer(sender, "permission", null);
                 return true;
             }
             reloadConfig();
-            stringsFile = new File(getDataFolder() + File.separator + "strings.yml");
-            strings = YamlConfiguration.loadConfiguration(stringsFile);
+            core.stringsFile = new File(getDataFolder() + File.separator + "strings.yml");
+            core.strings = YamlConfiguration.loadConfiguration(core.stringsFile);
             core.disabledWorlds = getConfig().getStringList("disabledWorlds");
-            messagePlayer(sender, "reload", null);
+            core.messagePlayer(sender, "reload", null);
             return true;
         }
 
@@ -148,25 +123,25 @@ public class Main extends JavaPlugin implements Listener {
                 if ((target == null) || (!target.isOnline())) {
                     HashMap<String, String> keywords = new HashMap<>();
                     keywords.put("%player%", args[0]);
-                    messagePlayer(sender, "notOnline", keywords);
+                    core.messagePlayer(sender, "notOnline", keywords);
                     return true;
                 }
                 if (! target.getAllowFlight()) {
                     HashMap<String, String> keywords = new HashMap<>();
                     keywords.put("%player%", args[0]);
-                    messagePlayer(sender, "notFlying", keywords);
+                    core.messagePlayer(sender, "notFlying", keywords);
                     return true;
                 }
 
-                core.setFallng(target, true);
+                core.setFalling(target, true);
                 core.setFlying(target, false);
                 HashMap<String, String> keywords = new HashMap<>();
                 keywords.put("%player%", args[0]);
-                messagePlayer(sender, "flyoffAdmin", keywords);
-                messagePlayer(target, "flyoffPlayer", null);
+                core.messagePlayer(sender, "flyoffAdmin", keywords);
+                core.messagePlayer(target, "flyoffPlayer", null);
                 return true;
             }
-            else { messagePlayer(sender, "permission", null); }
+            else { core.messagePlayer(sender, "permission", null); }
             return true;
         }
 
@@ -179,41 +154,41 @@ public class Main extends JavaPlugin implements Listener {
         
         // If they aren't in the correct mode, ignore commands
         if (! correctMode(player)) {
-            messagePlayer(player, "mode", null);
+            core.messagePlayer(player, "mode", null);
             return true;
         }
 
         if ((core.disabledWorlds.contains(player.getWorld().getName())) && (! hasPermission(player, "anyworld"))) {
-            messagePlayer(player, "disabled", null);
+            core.messagePlayer(player, "disabled", null);
             return true;
         }
 
         // Fly (or bfly) command to enable/disable flight
         if (commandLabel.equalsIgnoreCase("fly") || commandLabel.equalsIgnoreCase("bfly")) {
             if (! hasPermission(player, "use")) {
-                messagePlayer(player, "permission", null);
+                core.messagePlayer(player, "permission", null);
                 return true;
             }
             if (args.length > 0) { return false; }
 
             // Disable flight
             if (player.getAllowFlight()) {
-                core.setFallng(player, true);
+                core.setFalling(player, true);
                 core.setFlying(player, false);
                 player.setAllowFlight(false);
-                messagePlayer(player, "fDisabled", null);
+                core.messagePlayer(player, "fDisabled", null);
                 return true;
             }
             // Enable flight
             else {
                 // Wings are broken, can't fly
                 if (core.isBroken(player)) {
-                    messagePlayer(player, "wBroken", null);
+                    core.messagePlayer(player, "wBroken", null);
                     return true;
                 }
                 // Doesn't require fuel
                 if (hasPermission(player, "nofuel")) {
-                    messagePlayer(player, "fEnabled", null);
+                    core.messagePlayer(player, "fEnabled", null);
                     core.setFlying(player, true);
                     player.setAllowFlight(true);
                     return true;
@@ -221,7 +196,7 @@ public class Main extends JavaPlugin implements Listener {
 
                 // Regular and VIP players
                 if (core.hasFuel(player, fuelBlock(player), fuelSubdata(player)) || core.hasFuelCount(player)) {
-                    messagePlayer(player, "fEnabled", null);
+                    core.messagePlayer(player, "fEnabled", null);
                     core.setFlying(player, true);
                     player.setAllowFlight(true);
                     
@@ -231,7 +206,7 @@ public class Main extends JavaPlugin implements Listener {
                     }
                     
                     if (! core.hasFuel(player, fuelBlock(player), fuelSubdata(player))) {
-                        messagePlayer(player, "fLast", null);
+                        core.messagePlayer(player, "fLast", null);
                     }
                 }
                 else {
@@ -239,7 +214,7 @@ public class Main extends JavaPlugin implements Listener {
                     if (hasPermission(player, "vip")) { fuelName = getConfig().getString("VIPName"); }
                     HashMap<String, String> keywords = new HashMap<>();
                     keywords.put("%fuel%", fuelName);
-                    messagePlayer(player, "fRequired", keywords);
+                    core.messagePlayer(player, "fRequired", keywords);
                     return true;
                 }
                 return true;
@@ -249,50 +224,50 @@ public class Main extends JavaPlugin implements Listener {
         // Change your speed of flight (1x, 2x or 4x speed)
         if (commandLabel.equalsIgnoreCase("flyspeed")) {
             if (! hasPermission(player, "flyspeed")) {
-                messagePlayer(player, "permission", null);
+                core.messagePlayer(player, "permission", null);
                 return true;
             }
             if (getConfig().getString("allowSpeed").equalsIgnoreCase("false")) {
-                messagePlayer(player, "fsDisabled", null);
+                core.messagePlayer(player, "fsDisabled", null);
                 return true;
             }
             if (! player.getAllowFlight()) {
-                messagePlayer(player, "fsFlight", null);
+                core.messagePlayer(player, "fsFlight", null);
                 return true;
             }
 
             if (args.length == 0) {
                 if (player.getFlySpeed() == 0.1F) {
-                    messagePlayer(player, "fs1", null);
+                    core.messagePlayer(player, "fs1", null);
                     return true;
                 }
                 if (player.getFlySpeed() == 0.2F) {
-                    messagePlayer(player, "fs2", null);
+                    core.messagePlayer(player, "fs2", null);
                     return true;
                 }
                 if (player.getFlySpeed() == 0.4F) {
-                    messagePlayer(player, "fs4", null);
+                    core.messagePlayer(player, "fs4", null);
                     return true;
                 }
             }
             else {
                 if (args[0].equals("1")) {
                     player.setFlySpeed(0.1F);
-                    messagePlayer(player, "fs1", null);
+                    core.messagePlayer(player, "fs1", null);
                     return true;
                 }
                 if (args[0].equals("2")) {
                     player.setFlySpeed(0.2F);
-                    messagePlayer(player, "fs2", null);
+                    core.messagePlayer(player, "fs2", null);
                     return true;
                 }
                 if (args[0].equals("4")) {
                     player.setFlySpeed(0.4F);
-                    messagePlayer(player, "fs4", null);
+                    core.messagePlayer(player, "fs4", null);
                     return true;
                 }
                 
-                messagePlayer(player, "fsOptions", null);
+                core.messagePlayer(player, "fsOptions", null);
                 return true;
             }
         }
@@ -300,18 +275,18 @@ public class Main extends JavaPlugin implements Listener {
         // Fuel command to check how many seconds of fuel are remaining
         if (commandLabel.equalsIgnoreCase("fuel")) {
             if (! hasPermission(player, "use")) {
-                messagePlayer(player, "permission", null);
+                core.messagePlayer(player, "permission", null);
                 return true;
             }
             if (args.length > 0) { return false; }
         
             if (! core.hasFuelCount(player)) {
                 if (hasPermission(player, "nofuel")) {
-                    messagePlayer(player, "fuelNA", null);
+                    core.messagePlayer(player, "fuelNA", null);
                     return true;
                 }
                 else {
-                    messagePlayer(player, "fuelStart", null);
+                    core.messagePlayer(player, "fuelStart", null);
                     return true;
                 }
             }
@@ -322,7 +297,7 @@ public class Main extends JavaPlugin implements Listener {
             Integer roundSeconds = Math.round(rawSeconds.longValue());
             keywords.put("%seconds%", roundSeconds.toString());
             keywords.put("%flyspeed%", flySpeed.toString());
-            messagePlayer(sender, "fuelMessage", keywords);
+            core.messagePlayer(sender, "fuelMessage", keywords);
             return true;
         }
         return false;
@@ -348,11 +323,11 @@ public class Main extends JavaPlugin implements Listener {
 
             // PvP stuff, break wings (disallow flight) if player takes damage
             if ((getConfig().getBoolean("breakableWings")) && (! hasPermission(player, "superwings")) && (core.isFlying(player))) {
-                core.setFallng(player, true);
+                core.setFalling(player, true);
                 core.setFlying(player, false);
                 core.setBrokenCounter(player, getConfig().getDouble("healTime"));
                 player.setAllowFlight(false);
-                messagePlayer(player, "wBroke", null);
+                core.messagePlayer(player, "wBroke", null);
             }
         }
     }
@@ -360,12 +335,15 @@ public class Main extends JavaPlugin implements Listener {
     // Reset flyspeed & message admins for new versions
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event){
-        event.getPlayer().setFlySpeed(0.1F);
+        Player player = event.getPlayer();
+        player.setFlySpeed(0.1F);
+
+        core.retrievePlayer(player);
         
-        if (hasPermission(event.getPlayer(), "updates") && updateAvailable != null) {
+        if (hasPermission(player, "updates") && updateAvailable != null) {
             String header = getConfig().getString("header");
             String message = header + updateAvailable + " is available for download";
-            event.getPlayer().sendMessage(ChatColor.translateAlternateColorCodes('&', message));
+            player.sendMessage(ChatColor.translateAlternateColorCodes('&', message));
         }
     }
     
@@ -379,7 +357,23 @@ public class Main extends JavaPlugin implements Listener {
                 core.removeBroken(player);
                 player.setAllowFlight(true);
                 core.setFlying(player, true);
-                messagePlayer(player, "wHealed", null);
+                core.messagePlayer(player, "wHealed", null);
+            }
+        }
+    }
+    
+    // Prevent flight toggle for mode switch
+    @EventHandler
+    public void onGameMode(PlayerGameModeChangeEvent event) {
+        if (event.getNewGameMode() == GameMode.SURVIVAL || event.getNewGameMode() == GameMode.ADVENTURE) {
+            if (core.isFlying(event.getPlayer())) {
+                final Player player = event.getPlayer();
+                getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
+                    public void run() {
+                        player.setAllowFlight(true);
+                        player.getPlayer().setFlying(true);
+                    }
+                }, 2L);
             }
         }
     }
