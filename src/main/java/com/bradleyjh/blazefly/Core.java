@@ -35,6 +35,7 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.inventory.meta.ItemMeta;
 
 public class Core {
+	// TODO store all of these inside PlayerData or something
 	public ConcurrentHashMap<Player, Boolean> flying = new ConcurrentHashMap<>();
 	private ConcurrentHashMap<Player, Double> fuel = new ConcurrentHashMap<>();
 	private ConcurrentHashMap<Player, Double> broken = new ConcurrentHashMap<>();
@@ -47,10 +48,11 @@ public class Core {
 
 	// Completely remove a player
 	public void clearPlayer(Player player) {
-		if (flying.containsKey(player)) flying.remove(player);
-		if (fuel.containsKey(player)) fuel.remove(player);
-		if (broken.containsKey(player)) broken.remove(player);
-		if (falling.containsKey(player)) falling.remove(player);
+		// No need to check containsKey here; remove() will do nothing if not yet existed.
+		flying.remove(player);
+		fuel.remove(player);
+		broken.remove(player);
+		falling.remove(player);
 	}
 
 	// Store a player in players.yml (for players leaving)
@@ -102,26 +104,20 @@ public class Core {
 	public void storeAll() {
 		if (!flying.isEmpty()) {
 			Iterator<Player> iter = flying.keySet().iterator();
+
 			while (iter.hasNext()) {
 				Player player = (Player) iter.next();
 				players.createSection(player.getUniqueId().toString());
-				if (flying.containsKey(player)) {
-					players.set(player.getUniqueId() + ".flying", flying.get(player).booleanValue());
-				}
-				if (fuel.containsKey(player)) {
-					players.set(player.getUniqueId() + ".fuel", fuel.get(player).intValue());
-				}
-				if (broken.containsKey(player)) {
-					players.set(player.getUniqueId() + ".broken", broken.get(player).intValue());
-				}
-				if (falling.containsKey(player)) {
-					players.set(player.getUniqueId() + ".falling", falling.get(player).booleanValue());
-				}
+				if (flying.containsKey(player)) players.set(player.getUniqueId() + ".flying", flying.get(player).booleanValue());
+				if (fuel.containsKey(player)) players.set(player.getUniqueId() + ".fuel", fuel.get(player).intValue());
+				if (broken.containsKey(player)) players.set(player.getUniqueId() + ".broken", broken.get(player).intValue());
+				if (falling.containsKey(player)) players.set(player.getUniqueId() + ".falling", falling.get(player).booleanValue());
 			}
+
 			try {
 				players.save(playersFile);
 			} catch (IOException e) {
-				return;
+				e.printStackTrace();
 			}
 		}
 	}
@@ -134,9 +130,7 @@ public class Core {
 
 				setFlying(player, section.getBoolean("flying"));
 				increaseFuelCount(player, section.getDouble("fuel"));
-				if (section.getDouble("broken") > 0.0) {
-					setBrokenCounter(player, section.getDouble("broken"));
-				}
+				if (section.getDouble("broken") > 0.0) setBrokenCounter(player, section.getDouble("broken"));
 				setFalling(player, section.getBoolean("falling"));
 
 				if (isFlying(player)) {
@@ -151,7 +145,7 @@ public class Core {
 		try {
 			players.save(playersFile);
 		} catch (IOException e) {
-			return;
+			e.printStackTrace();
 		}
 	}
 
@@ -178,83 +172,60 @@ public class Core {
 	}
 
 	// Flying stuff
-	public void setFlying(Player player, Boolean val) {
+	public void setFlying(Player player, boolean val) {
 		flying.put(player, val);
 	}
 
-	public Boolean isFlying(Player player) {
-		if (flying.containsKey(player)) {
-			return flying.get(player);
-		}
-		return false;
+	public boolean isFlying(Player player) {
+		return flying.getOrDefault(player, false);
 	}
 
 	// Fuel counter stuff
-	public void increaseFuelCount(Player player, Double val) {
-		Double fuelVal = 0.0;
-		if (fuel.containsKey(player)) {
-			fuelVal = fuel.get(player);
-		}
+	public void increaseFuelCount(Player player, double val) {
+		double fuelVal = fuel.getOrDefault(player, 0.0);
 		fuel.put(player, fuelVal + val);
 	}
 
-	public void decreaseFuelCount(Player player, Double val) {
+	public void decreaseFuelCount(Player player, double val) {
 		fuel.put(player, fuel.get(player) - val);
 	}
 
-	public Double getFuelCount(Player player) {
-		if (fuel.containsKey(player)) {
-			return fuel.get(player);
-		}
-		return 0.0;
+	public double getFuelCount(Player player) {
+		return fuel.getOrDefault(player, 0.0);
 	}
 
-	public Boolean hasFuelCount(Player player) {
-		if (fuel.containsKey(player) && fuel.get(player) > 0) {
-			return true;
-		}
-		return false;
+	public boolean hasFuelCount(Player player) {
+		return fuel.containsKey(player) && fuel.get(player) > 0;
 	}
 
 	// Falling stuff (Some hacky stuff to prevent occasional damage happening)
-	public void setFalling(Player player, Boolean val) {
+	public void setFalling(Player player, boolean val) {
 		falling.put(player, val);
 	}
 
-	public Boolean isFalling(Player player) {
-		if (falling.containsKey(player)) {
-			return falling.get(player);
-		}
-		return false;
+	public boolean isFalling(Player player) {
+		return falling.getOrDefault(player, false);
 	}
 
 	// Broken wings stuff
-	public void setBrokenCounter(Player player, Double val) {
+	public void setBrokenCounter(Player player, double val) {
 		broken.put(player, val);
 	}
 
-	public void decreaseBrokenCounter(Player player, Double val) {
-		broken.put(player, broken.get(player) - val);
+	public void decreaseBrokenCounter(Player player, double val) {
+		broken.put(player, broken.getOrDefault(player, 0.0) - val);
 	}
 
-	public Double getBrokenCount(Player player) {
-		if (broken.containsKey(player)) {
-			return broken.get(player);
-		}
-		return 0.0;
+	public double getBrokenCount(Player player) {
+		return broken.getOrDefault(player, 0.0);
 	}
 
-	public Boolean isBroken(Player player) {
-		if (broken.containsKey(player)) {
-			return true;
-		}
-		return false;
+	public boolean isBroken(Player player) {
+		return broken.containsKey(player);
 	}
 
 	public void removeBroken(Player player) {
-		if (broken.containsKey(player)) {
-			broken.remove(player);
-		}
+		broken.remove(player);
 	}
 
 	// Check if the player has fuel
@@ -263,19 +234,14 @@ public class Core {
 		ItemStack[] contents = inv.getContents();
 		ItemStack[] arrayOfItemStack;
 		int total = (arrayOfItemStack = contents).length;
+
 		for (int i = 0; i < total; i++) {
 			ItemStack stack = arrayOfItemStack[i];
-			if (stack == null) {
-				continue;
-			}
-			if (stack.getDurability() != subdata) {
-				continue;
-			}
-
-			if (stack.getData().getItemType().equals(Material.getMaterial(material.toUpperCase()))) {
-				return true;
-			}
+			if (stack == null) continue;
+			if (stack.getDurability() != subdata) continue;
+			if (stack.getData().getItemType().equals(Material.getMaterial(material.toUpperCase()))) return true;
 		}
+
 		return false;
 	}
 
@@ -287,12 +253,8 @@ public class Core {
 		int total = (arrayOfItemStack = contents).length;
 		for (int i = 0; i < total; i++) {
 			ItemStack stack = arrayOfItemStack[i];
-			if (stack == null) {
-				continue;
-			}
-			if (stack.getDurability() != subdata) {
-				continue;
-			}
+			if (stack == null) continue;
+			if (stack.getDurability() != subdata) continue;
 
 			if (stack.getType() == Material.getMaterial(material.toUpperCase())) {
 				if (stack.getAmount() > 1) {
@@ -310,6 +272,7 @@ public class Core {
 					stack.setItemMeta(temp);
 					inv.remove(stack);
 				}
+
 				break;
 			}
 		}
