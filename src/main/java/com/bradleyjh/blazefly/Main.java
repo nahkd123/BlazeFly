@@ -17,23 +17,17 @@
 
 package com.bradleyjh.blazefly;
 
-import java.util.HashMap;
 import java.io.File;
-import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.event.Listener;
-import org.bukkit.entity.Player;
-import org.bukkit.ChatColor;
+import java.util.HashMap;
+
+import org.bukkit.GameMode;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.entity.EntityDamageEvent;
-import org.bukkit.event.player.PlayerJoinEvent;
-import org.bukkit.event.entity.PlayerDeathEvent;
-import org.bukkit.event.player.PlayerGameModeChangeEvent;
-import org.bukkit.GameMode;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.Player;
+import org.bukkit.plugin.java.JavaPlugin;
 
-public class Main extends JavaPlugin implements Listener {
+public class Main extends JavaPlugin {
 	Core core = new Core();
 	String updateAvailable;
 
@@ -48,10 +42,8 @@ public class Main extends JavaPlugin implements Listener {
 
 		core.retrieveAll();
 		core.disabledWorlds = getConfig().getStringList("disabledWorlds");
-		getServer().getPluginManager().registerEvents(this, this);
-		if (getConfig().getBoolean("updateChecker")) {
-			getServer().getScheduler().runTaskAsynchronously(this, new Updater(this, getDescription().getVersion()));
-		}
+		getServer().getPluginManager().registerEvents(new EventsListener(this), this);
+		if (getConfig().getBoolean("updateChecker")) getServer().getScheduler().runTaskAsynchronously(this, new Updater(this, getDescription().getVersion()));
 		getServer().getScheduler().scheduleSyncRepeatingTask(this, new Timer(this), 10L, 10L);
 	}
 
@@ -71,10 +63,7 @@ public class Main extends JavaPlugin implements Listener {
 
 	// Check permissions
 	public boolean hasPermission(CommandSender sender, String permission) {
-		if (sender.hasPermission("blazefly." + permission)) {
-			return true;
-		}
-		return false;
+		return sender.hasPermission("blazefly." + permission);
 	}
 
 	// Get the fuel block currently used
@@ -326,87 +315,5 @@ public class Main extends JavaPlugin implements Listener {
 			return true;
 		}
 		return false;
-	}
-
-	@EventHandler
-	public void onDamage(EntityDamageEvent event) {
-		if ((event.getEntity() instanceof Player)) {
-			Player player = (Player) event.getEntity();
-
-			// Protect players falling due to running out of fuel, if enabled
-			if ((event.getCause().equals(EntityDamageEvent.DamageCause.FALL)) && (core.isFalling(player))) {
-				if (getConfig().getBoolean("fallProtection")) {
-					event.setCancelled(true);
-					return;
-				}
-			}
-
-			// Ignore these types of damage
-			if (event.getCause().equals(EntityDamageEvent.DamageCause.DROWNING)) {
-				return;
-			}
-			if (event.getCause().equals(EntityDamageEvent.DamageCause.STARVATION)) {
-				return;
-			}
-			if (event.getDamage() == 0) {
-				return;
-			}
-
-			// PvP stuff, break wings (disallow flight) if player takes damage
-			if ((getConfig().getBoolean("breakableWings")) && (!hasPermission(player, "superwings"))
-					&& (core.isFlying(player))) {
-				core.setFalling(player, true);
-				core.setFlying(player, false);
-				core.setBrokenCounter(player, getConfig().getDouble("healTime"));
-				player.setAllowFlight(false);
-				core.messagePlayer(player, "wBroke", null);
-			}
-		}
-	}
-
-	// Reset flyspeed & message admins for new versions
-	@EventHandler
-	public void onPlayerJoin(PlayerJoinEvent event) {
-		Player player = event.getPlayer();
-		player.setFlySpeed(0.1F);
-
-		core.retrievePlayer(player);
-
-		if (hasPermission(player, "updates") && updateAvailable != null) {
-			String header = getConfig().getString("header");
-			String message = header + updateAvailable + " is available for download";
-			player.sendMessage(ChatColor.translateAlternateColorCodes('&', message));
-		}
-	}
-
-	// Clear broken wing counter if player dies
-	@EventHandler
-	public void onDeath(PlayerDeathEvent event) {
-		if ((event.getEntity() instanceof Player)) {
-			Player player = (Player) event.getEntity();
-
-			if (core.isBroken(player)) {
-				core.removeBroken(player);
-				player.setAllowFlight(true);
-				core.setFlying(player, true);
-				core.messagePlayer(player, "wHealed", null);
-			}
-		}
-	}
-
-	// Prevent flight toggle for mode switch
-	@EventHandler
-	public void onGameMode(PlayerGameModeChangeEvent event) {
-		if (event.getNewGameMode() == GameMode.SURVIVAL || event.getNewGameMode() == GameMode.ADVENTURE) {
-			if (core.isFlying(event.getPlayer())) {
-				final Player player = event.getPlayer();
-				getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
-					public void run() {
-						player.setAllowFlight(true);
-						player.getPlayer().setFlying(true);
-					}
-				}, 2L);
-			}
-		}
 	}
 }
