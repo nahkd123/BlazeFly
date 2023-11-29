@@ -26,42 +26,52 @@ import java.net.MalformedURLException;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.JSONValue;
- 
+
 public class Updater implements Runnable {
-    private Main main;
-    private String thisVersion;
-    public Updater(Main plugin, String version) {
-        main = plugin;
-        thisVersion = version;
-    }
+	private Main main;
+	private String thisVersion;
 
-    public void run() {
-        URL url;
-        try { url = new URL("https://api.curseforge.com/servermods/files?projectIds=50224"); }
-        catch (MalformedURLException e) { return; }
-        
-        try {
-            URLConnection conn = url.openConnection();
-            final BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-            String response = reader.readLine();
-            JSONArray array = (JSONArray) JSONValue.parse(response);
+	public Updater(Main plugin, String version) {
+		main = plugin;
+		thisVersion = version;
+	}
 
-            if (array.size() > 0) {
-                JSONObject latest = (JSONObject) array.get(array.size() - 1);
-                String latestFile = (String) latest.get("name");
-                
-                // SomePlugin v2.3 = "230", SomePlugin v2.3.4 = "234"
-                // means we can check if the newer file is a newer version
-                String latestVersion = latestFile.replaceAll("\\D+","");
-                if (latestVersion.length() == 2) { latestVersion = latestVersion + "0"; }
-                thisVersion = thisVersion.replaceAll("\\D+","");
-                if (thisVersion.length() == 2) { thisVersion = thisVersion + "0"; }
-                
-                if (Integer.parseInt(latestVersion) > Integer.parseInt(thisVersion)) {
-                    main.updateAvailable = latestFile;
-                    main.getLogger().info(latestFile + " is available for download!");
-                }
-            }
-        } catch (IOException e) { return; }
-    }
+	public void run() {
+		URL url;
+		try {
+			url = new URL("https://api.curseforge.com/servermods/files?projectIds=50224");
+		} catch (MalformedURLException e) {
+			return;
+		}
+
+		try {
+			URLConnection conn = url.openConnection();
+			final BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+			String response = reader.readLine();
+			JSONArray array = (JSONArray) JSONValue.parse(response);
+
+			if (array.size() > 0) {
+				JSONObject latest = (JSONObject) array.get(array.size() - 1);
+				String latestFile = (String) latest.get("name");
+
+				// SomePlugin v2.3 = "230", SomePlugin v2.3.4 = "234"
+				// means we can check if the newer file is a newer version
+				String latestVersion = latestFile.replaceAll("\\D+", "");
+				if (latestVersion.length() == 2) {
+					latestVersion = latestVersion + "0";
+				}
+				thisVersion = thisVersion.replaceAll("\\D+", "");
+				if (thisVersion.length() == 2) {
+					thisVersion = thisVersion + "0";
+				}
+
+				if (Integer.parseInt(latestVersion) > Integer.parseInt(thisVersion)) {
+					main.updateAvailable = latestFile;
+					main.getLogger().info(latestFile + " is available for download!");
+				}
+			}
+		} catch (IOException e) {
+			return;
+		}
+	}
 }
