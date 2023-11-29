@@ -1,4 +1,4 @@
 # BlazeFly
-A "fly for fuel" plugin for Minecraft
+This is a commissioned fork of the original [BlazeFly](https://github.com/ayybradleyjh/BlazeFly) plugin.
 
-Plugin information can be found here: http://dev.bukkit.org/bukkit-plugins/blazefly/
+Original plugin information can be found here: http://dev.bukkit.org/bukkit-plugins/blazefly/
