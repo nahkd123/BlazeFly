@@ -76,14 +76,15 @@ public class Core {
 			ConfigurationSection section = players.getConfigurationSection(player.getUniqueId().toString());
 
 			setFlying(player, section.getBoolean("flying"));
+
+			// @nahkd123 - Commissioned - Disable fly when player joined the server
+			setFlying(player, false);
+			// TODO remove this when making PR (if the author care to revisit the plugin)
+
 			increaseFuelCount(player, section.getDouble("fuel"));
-			if (section.getDouble("broken") > 0.0) {
-				setBrokenCounter(player, section.getDouble("broken"));
-			}
+			if (section.getDouble("broken") > 0.0) setBrokenCounter(player, section.getDouble("broken"));
 			setFalling(player, section.getBoolean("falling"));
-			if (isBroken(player)) {
-				messagePlayer(player, "wResumed", null);
-			}
+			if (isBroken(player)) messagePlayer(player, "wResumed", null);
 
 			if (isFlying(player)) {
 				player.setAllowFlight(true);
@@ -91,7 +92,9 @@ public class Core {
 				messagePlayer(player, "fResumed", null);
 			}
 
+			// TODO HashSet
 			players.set(player.getUniqueId().toString(), null);
+
 			try {
 				players.save(playersFile);
 			} catch (IOException e) {

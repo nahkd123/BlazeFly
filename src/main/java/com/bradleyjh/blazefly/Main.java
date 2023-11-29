@@ -95,14 +95,8 @@ public class Main extends JavaPlugin {
 	}
 
 	// Make sure the gamemode is applicable for BlazeFly
-	public Boolean correctMode(Player player) {
-		if (player.getGameMode() == GameMode.SURVIVAL) {
-			return true;
-		}
-		if (player.getGameMode() == GameMode.ADVENTURE) {
-			return true;
-		}
-		return false;
+	public boolean correctGameMode(Player player) {
+		return player.getGameMode() == GameMode.SURVIVAL || player.getGameMode() == GameMode.ADVENTURE;
 	}
 
 	// Process incoming commands
@@ -114,6 +108,7 @@ public class Main extends JavaPlugin {
 				core.messagePlayer(sender, "permission", null);
 				return true;
 			}
+
 			reloadConfig();
 			core.stringsFile = new File(getDataFolder() + File.separator + "strings.yml");
 			core.strings = YamlConfiguration.loadConfiguration(core.stringsFile);
@@ -164,7 +159,7 @@ public class Main extends JavaPlugin {
 		Player player = (Player) sender;
 
 		// If they aren't in the correct mode, ignore commands
-		if (!correctMode(player)) {
+		if (!correctGameMode(player)) {
 			core.messagePlayer(player, "mode", null);
 			return true;
 		}

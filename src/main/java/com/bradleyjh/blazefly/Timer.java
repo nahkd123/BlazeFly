@@ -42,14 +42,11 @@ public class Timer implements Runnable {
 				}
 
 				// If they aren't in the correct mode, don't adjust anything
-				if (!main.correctMode(player)) {
-					continue;
-				}
+				if (!main.correctGameMode(player)) continue;
 
 				// They moved to a world where flight is disable and don't have the anyworld
 				// permission
-				if (main.core.isFlying(player) && main.core.disabledWorlds.contains(player.getWorld().getName())
-						&& !main.hasPermission(player, "anyworld")) {
+				if (main.core.isFlying(player) && main.core.disabledWorlds.contains(player.getWorld().getName()) && !main.hasPermission(player, "anyworld")) {
 					main.core.setFalling(player, true);
 					main.core.setFlying(player, false);
 					player.setAllowFlight(false);
@@ -58,11 +55,11 @@ public class Timer implements Runnable {
 
 				// Check if they have "landed" to disable fall protection
 				if (main.core.isFalling(player)) {
-					Location block = new Location(player.getWorld(), player.getLocation().getBlockX(),
-							Math.ceil(player.getLocation().getY()) - 1, player.getLocation().getBlockZ());
-					if (!block.getBlock().getType().equals(Material.AIR)) {
-						main.core.setFalling(player, false);
-					}
+					Location block = new Location(player.getWorld(),
+							player.getLocation().getBlockX(),
+							Math.ceil(player.getLocation().getY()) - 1,
+							player.getLocation().getBlockZ());
+					if (!block.getBlock().getType().equals(Material.AIR)) main.core.setFalling(player, false);
 				}
 
 				// Check if the players "wings" have "healed"
@@ -92,15 +89,16 @@ public class Timer implements Runnable {
 							main.core.setFlying(player, false);
 							player.setAllowFlight(false);
 						}
-					}
-					// Update the players remaining time
-					else {
-						if (!main.core.isFlying(player)) {
-							continue;
-						} // If they aren't flying, don't use fuel
-						Double fuelMultiplier = 1.0;
-						Location block = new Location(player.getWorld(), player.getLocation().getBlockX(),
-								Math.ceil(player.getLocation().getY()) - 1, player.getLocation().getBlockZ());
+					} else {
+						// Update the players remaining time
+						// If they aren't flying, don't use fuel
+						if (!main.core.isFlying(player)) continue;
+
+						double fuelMultiplier = 1.0;
+						Location block = new Location(player.getWorld(),
+								player.getLocation().getBlockX(),
+								Math.ceil(player.getLocation().getY()) - 1,
+								player.getLocation().getBlockZ());
 						if (!block.getBlock().getType().equals(Material.AIR)) {
 							fuelMultiplier = main.getConfig().getDouble("groundFuel");
 						} else {

@@ -31,15 +31,9 @@ public class EventsListener implements Listener {
 			}
 
 			// Ignore these types of damage
-			if (event.getCause().equals(EntityDamageEvent.DamageCause.DROWNING)) {
-				return;
-			}
-			if (event.getCause().equals(EntityDamageEvent.DamageCause.STARVATION)) {
-				return;
-			}
-			if (event.getDamage() == 0) {
-				return;
-			}
+			if (event.getCause().equals(EntityDamageEvent.DamageCause.DROWNING)) return;
+			if (event.getCause().equals(EntityDamageEvent.DamageCause.STARVATION)) return;
+			if (event.getDamage() == 0) return;
 
 			// PvP stuff, break wings (disallow flight) if player takes damage
 			if ((plugin.getConfig().getBoolean("breakableWings")) && (!plugin.hasPermission(player, "superwings"))
